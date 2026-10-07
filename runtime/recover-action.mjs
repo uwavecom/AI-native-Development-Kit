@@ -1,3 +1,5 @@
+import { executeAction } from './execute-action.mjs';
+
 export const RecoveryDecision = Object.freeze({
   NO_RECOVERY_NEEDED: 'NO_RECOVERY_NEEDED',
   VERIFY_STATE: 'VERIFY_STATE',
@@ -8,13 +10,18 @@ export const RecoveryDecision = Object.freeze({
   UNRESOLVED: 'UNRESOLVED',
 });
 
+async function runRecoveryOperation(operation, audit) {
+  if (!operation) return null;
+  return executeAction({ ...operation, audit });
+}
+
 export async function recoverAction({
   tool,
   execution,
   inspectState,
   retry,
-  compensate,
-  rollback,
+  compensationAction,
+  rollbackAction,
   audit = async () => {},
 }) {
   if (!execution) return { decision: RecoveryDecision.UNRESOLVED, reason: 'MISSING_EXECUTION_RESULT' };
@@ -71,23 +78,25 @@ export async function recoverAction({
     };
   }
 
-  if (state?.canRollback === true && typeof rollback === 'function') {
-    const rollbackResult = await rollback();
-    await audit({ event: 'recovery_completed', tool: tool?.name, method: 'ROLLBACK' });
+  if (state?.canRollback === true && rollbackAction) {
+    const rollbackResult = await runRecoveryOperation(rollbackAction, audit);
+    const resolved = rollbackResult?.status === 'SUCCEEDED' && rollbackResult?.verified === true;
+    await audit({ event: resolved ? 'recovery_completed' : 'recovery_unresolved', tool: tool?.name, method: 'ROLLBACK' });
     return {
       decision: RecoveryDecision.ROLLBACK,
-      resolved: rollbackResult?.verified === true,
+      resolved,
       rollbackResult,
       state,
     };
   }
 
-  if (state?.canCompensate === true && typeof compensate === 'function') {
-    const compensationResult = await compensate();
-    await audit({ event: 'recovery_completed', tool: tool?.name, method: 'COMPENSATE' });
+  if (state?.canCompensate === true && compensationAction) {
+    const compensationResult = await runRecoveryOperation(compensationAction, audit);
+    const resolved = compensationResult?.status === 'SUCCEEDED' && compensationResult?.verified === true;
+    await audit({ event: resolved ? 'recovery_completed' : 'recovery_unresolved', tool: tool?.name, method: 'COMPENSATE' });
     return {
       decision: RecoveryDecision.COMPENSATE,
-      resolved: compensationResult?.verified === true,
+      resolved,
       compensationResult,
       state,
     };
