@@ -204,3 +204,40 @@ test('one-shot signed approval cannot be replayed', async () => {
     /APPROVAL_ALREADY_CONSUMED/
   );
 });
+
+
+test('one-shot approval is not consumed when execution never starts', async () => {
+  const authority = createSignedApprovalAuthority({ secret: '0123456789abcdef' });
+  const guard = createActionGuard({
+    tools,
+    approvalAuthority: authority,
+    policyVersion: 'p1',
+    toolContractVersion: 't1',
+  });
+  const proposal = guard.propose({
+    toolName: 'delete_resource',
+    target: 'r1',
+    params: { id: 'r1' },
+  });
+  const credential = await authority.issue(proposal, { approverId: 'human-1' });
+
+  const blocked = await guard.execute({
+    actor: { permissions: [] },
+    proposal,
+    approvalCredential: credential,
+    invoke: async () => ({ deleted: true }),
+    verify: async () => ({ verified: true }),
+  });
+
+  assert.equal(blocked.execution.executed, false);
+
+  const allowed = await guard.execute({
+    actor: { permissions: ['resource:delete'] },
+    proposal,
+    approvalCredential: credential,
+    invoke: async () => ({ deleted: true }),
+    verify: async () => ({ verified: true }),
+  });
+
+  assert.equal(allowed.execution.status, 'SUCCEEDED');
+});
