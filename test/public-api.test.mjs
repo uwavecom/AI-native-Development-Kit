@@ -167,3 +167,40 @@ test('OpenAI adapter exposes needsApproval and executes via ActionGuard', async 
   );
   assert.deepEqual(result, { deleted: 'r1' });
 });
+
+
+test('one-shot signed approval cannot be replayed', async () => {
+  const authority = createSignedApprovalAuthority({ secret: '0123456789abcdef' });
+  const guard = createActionGuard({
+    tools,
+    approvalAuthority: authority,
+    policyVersion: 'p1',
+    toolContractVersion: 't1',
+  });
+  const proposal = guard.propose({
+    toolName: 'delete_resource',
+    target: 'r1',
+    params: { id: 'r1' },
+  });
+  const credential = await authority.issue(proposal, { approverId: 'human-1' });
+
+  const first = await guard.execute({
+    actor: { permissions: ['resource:delete'] },
+    proposal,
+    approvalCredential: credential,
+    invoke: async () => ({ deleted: true }),
+    verify: async () => ({ verified: true }),
+  });
+  assert.equal(first.execution.status, 'SUCCEEDED');
+
+  await assert.rejects(
+    guard.execute({
+      actor: { permissions: ['resource:delete'] },
+      proposal,
+      approvalCredential: credential,
+      invoke: async () => ({ deleted: true }),
+      verify: async () => ({ verified: true }),
+    }),
+    /APPROVAL_ALREADY_CONSUMED/
+  );
+});
