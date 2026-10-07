@@ -27,6 +27,15 @@ future framework profiles must provide actual typecheck, lint, build, authentica
 database, and deployment checks. None of those are claimed by this version.
 The memory adapter is a demo; it is not durable storage. No UI or HTTP endpoint is supplied.
 
+## Agent tool contracts
+
+For agent-invoked external capabilities, also read:
+
+- `.ai/tool-contract.md` — tool metadata, access class, retries, verification, partial results, auditability;
+- `.ai/action-policy.md` — default approval and execution policy for AI-initiated actions.
+
+The first live integration stress-test is `examples/tradingview-mcp/`, which maps TradingView's official MCP server into these generic contracts without making TradingView part of the core architecture.
+
 ## Next experiment
 
 Give a coding agent this short task: “Add task completion following the reference.”
