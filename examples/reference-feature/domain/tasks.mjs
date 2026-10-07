@@ -1,5 +1,5 @@
-/** @typedef {{ id: string, title: string, ownerId: string }} Task */
-/** @typedef {{ insert(task: Task): Promise<void> }} TaskRepository */
+/** @typedef {{ id: string, title: string, ownerId: string, completed: boolean }} Task */
+/** @typedef {{ insert(task: Task): Promise<void>, completeOwned(id: string, ownerId: string): Promise<Task> }} TaskRepository */
 
 /**
  * @param {{ repository: TaskRepository, newId: () => string }} dependencies
@@ -12,8 +12,16 @@ export function createTaskService({ repository, newId }) {
     if (typeof ownerId !== 'string' || !ownerId.trim()) {
       throw new Error('INVALID_OWNER');
     }
-    const task = { id: newId(), title: title.trim(), ownerId };
+    const task = { id: newId(), title: title.trim(), ownerId, completed: false };
     await repository.insert(task);
     return task;
+  };
+}
+
+// Completion is idempotent. The repository must atomically enforce owner scope
+// and transition to completed; persistence adapters must preserve this invariant.
+export function completeTaskService({ repository }) {
+  return async function completeTask(taskId, ownerId) {
+    return repository.completeOwned(taskId, ownerId);
   };
 }
