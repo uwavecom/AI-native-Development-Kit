@@ -41,7 +41,9 @@ export function createActionGuard({
       throw new Error('APPROVAL_AUTHORITY_REQUIRED');
     }
 
-    const verified = await approvalAuthority.verify(approvalCredential, proposal);
+    const verified = approvalAuthority.claim
+      ? await approvalAuthority.claim(approvalCredential, proposal)
+      : await approvalAuthority.verify(approvalCredential, proposal);
     if (!verified.valid) {
       const error = new Error(verified.reason ?? 'INVALID_APPROVAL_CREDENTIAL');
       error.code = verified.reason ?? 'INVALID_APPROVAL_CREDENTIAL';
