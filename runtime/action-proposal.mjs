@@ -45,6 +45,12 @@ export function createApprovalReceipt({
   });
 }
 
+export function consumeApprovalReceipt(approval) {
+  if (!approval?.valid) throw new Error('INVALID_APPROVAL');
+  if (approval.oneShot !== true) return approval;
+  return Object.freeze({ ...approval, consumed: true });
+}
+
 export function isApprovalFresh(approval, now = Date.now()) {
   if (!approval?.valid) return false;
   if (!approval.expiresAt) return true;
