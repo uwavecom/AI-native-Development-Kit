@@ -33,6 +33,8 @@ It does **not** try to replace Temporal, Restate, Dapr, LangGraph, OpenAI Agents
 
 ## 10-minute quick start
 
+**Current distribution status:** this is a reference release in the repository, not yet a published npm package. The package remains private until an open-source license is selected.
+
 Requires Node.js 22+.
 
 Clone the repository and run:
@@ -41,7 +43,7 @@ Clone the repository and run:
 node examples/quickstart.mjs
 ```
 
-The example protects a destructive `merge_pull_request` action.
+The example protects a destructive `merge_pull_request` action. For the complete copy-paste path from tool declaration to production checklist, see [`docs/getting-started.md`](docs/getting-started.md).
 
 The core flow is:
 
@@ -151,6 +153,10 @@ npm run verify
 ```
 
 Verification checks syntax, architectural boundaries, tool-contract guardrails, behavior, runtime hardening, production profiles, and public API/adapters.
+
+## Before production use
+
+Read [`SECURITY.md`](SECURITY.md). The bundled signed approval authority demonstrates the trust contract and replay semantics, but its replay state is in-memory and single-process. Distributed deployments must provide a durable authority with atomic claim/consume behavior.
 
 ## Reference material
 
