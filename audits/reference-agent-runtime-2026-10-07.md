@@ -38,7 +38,9 @@ read file
 - action-budget exhaustion;
 - partial workflow state.
 
-## Important architecture finding
+## Important architecture findings
+
+### Approval authority must be outside the agent
 
 The first reference-agent implementation incorrectly minted `ApprovalReceipt` objects inside the agent itself.
 
@@ -54,6 +56,22 @@ The agent:
 - cannot manufacture the receipt itself.
 
 This is a material validation result and should become a permanent architecture invariant.
+
+### Read capabilities must use the same runtime path
+
+The first TradingView reference flow called symbol discovery and screener reads directly on the provider.
+
+That bypassed capability discovery, execution budgets, and audit/runtime policy.
+
+The reference was corrected so read tools also pass through the same hardened runtime. Approval is not required for low-risk reads, but they still participate in capability discovery, budgets, execution semantics, and audit where configured.
+
+### Runtime ports must permit asynchronous adapters
+
+The hardened runtime originally assumed `budget.consume()` was synchronous because the local fixed-window reference budget is in-memory.
+
+The Cloudflare production profile exposed that a real rate-limit adapter is asynchronous.
+
+The core runtime now awaits the budget port, preserving compatibility with both synchronous and asynchronous implementations.
 
 ## What held up
 
@@ -89,6 +107,6 @@ These are candidates for future versions only if justified by production validat
 
 ## Conclusion
 
-The architecture passes the first composition test with one important correction: approval issuance must be outside the agent trust boundary.
+The architecture passes the first composition test after three material corrections: approval issuance is outside the agent trust boundary, read capabilities use the same runtime path, and runtime ports support asynchronous production adapters.
 
 The kit is ready for continued validation against real deployment profiles without adding new core abstractions prematurely.
