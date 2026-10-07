@@ -1,3 +1,5 @@
+import { isApprovalFresh } from './action-proposal.mjs';
+
 export const Decision = Object.freeze({
   ALLOW: 'ALLOW',
   REQUIRE_APPROVAL: 'REQUIRE_APPROVAL',
@@ -8,8 +10,6 @@ function hasPermissions(actor, required = []) {
   const granted = new Set(actor?.permissions ?? []);
   return required.every(permission => granted.has(permission));
 }
-
-import { isApprovalFresh } from './action-proposal.mjs';
 
 function approvalMatches(tool, context) {
   const proposal = context.proposal;
