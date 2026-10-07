@@ -10,9 +10,9 @@ function canonicalize(value) {
   return value;
 }
 
-export function createActionProposal({ toolName, target = null, params = {}, scope = null }) {
+export function createActionProposal({ toolName, target = null, params = {}, scope = null, provenance = null }) {
   if (!toolName) throw new Error('INVALID_TOOL_NAME');
-  const canonical = canonicalize({ toolName, target, params, scope });
+  const canonical = canonicalize({ toolName, target, params, scope, provenance });
   const actionSignature = createHash('sha256')
     .update(JSON.stringify(canonical))
     .digest('hex');
