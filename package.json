@@ -1,7 +1,7 @@
 {
   "name": "ai-native-development-kit",
   "version": "0.3.0",
-  "private": false,
+  "private": true,
   "type": "module",
   "engines": {
     "node": ">=22"
@@ -22,6 +22,7 @@
     "adapters",
     "profiles",
     "README.md",
-    "LICENSE"
+    "SECURITY.md",
+    "docs"
   ]
 }
