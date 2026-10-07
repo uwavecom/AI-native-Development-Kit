@@ -1,3 +1,4 @@
+import { consumeApprovalReceipt } from './action-proposal.mjs';
 import { executeAction } from './execute-action.mjs';
 import { recoverAction } from './recover-action.mjs';
 
@@ -28,10 +29,15 @@ export async function runSafeAction({
     audit,
   });
 
+  const approvalReceipt = execution.executed === true && approval?.oneShot === true
+    ? consumeApprovalReceipt(approval)
+    : approval ?? null;
+
   if (!['UNKNOWN', 'VERIFICATION_FAILED', 'FAILED'].includes(execution.status)) {
     return {
       execution,
       recovery: null,
+      approvalReceipt,
       resolved: execution.status === 'SUCCEEDED' || execution.status === 'PENDING',
     };
   }
@@ -49,6 +55,7 @@ export async function runSafeAction({
   return {
     execution,
     recovery,
+    approvalReceipt,
     resolved: recovery.resolved === true,
   };
 }
