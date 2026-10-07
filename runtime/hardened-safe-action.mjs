@@ -22,8 +22,25 @@ export async function runHardenedSafeAction({
   if (!tool?.name) throw new Error('TOOL_REQUIRED');
   if (!proposal?.actionSignature) throw new Error('PROPOSAL_REQUIRED');
 
-  const durableApproval = approval ??
+  let durableApproval = approval ??
     (approvalId && stateStore ? await stateStore.getApproval(approvalId) : null);
+
+  if (approvalId && stateStore && durableApproval?.oneShot === true) {
+    const claim = await stateStore.claimApproval(approvalId, proposal.actionSignature);
+    if (!claim.claimed) {
+      return {
+        execution: {
+          status: 'PENDING',
+          decision: { decision: 'DENY', reason: `APPROVAL_${claim.reason}` },
+          executed: false,
+        },
+        recovery: null,
+        approvalReceipt: durableApproval,
+        resolved: false,
+      };
+    }
+    durableApproval = claim.approval;
+  }
 
   const audit = stateStore
     ? event => stateStore.appendAudit({
