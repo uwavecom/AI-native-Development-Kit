@@ -9,6 +9,7 @@
   "scripts": {
     "verify": "node scripts/verify.mjs",
     "test": "node --experimental-vm-modules --test",
-    "check:architecture": "node --experimental-vm-modules guardrails/architecture.mjs"
+    "check:architecture": "node --experimental-vm-modules guardrails/architecture.mjs",
+    "check:tools": "node guardrails/tool-contract.mjs"
   }
 }

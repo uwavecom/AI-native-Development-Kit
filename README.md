@@ -27,6 +27,18 @@ future framework profiles must provide actual typecheck, lint, build, authentica
 database, and deployment checks. None of those are claimed by this version.
 The memory adapter is a demo; it is not durable storage. No UI or HTTP endpoint is supplied.
 
+## Agent tool contracts
+
+For agent-invoked external capabilities, also read:
+
+- `.ai/tool-contract.md` — tool metadata, access class, retries, verification, partial results, auditability;
+- `.ai/action-policy.md` — default approval and execution policy for AI-initiated actions;
+- `.ai/approval-contract.md` — action-bound, expiring/one-shot approvals;
+- `.ai/execution-contract.md` — execution, unknown state, verification and audit;
+- `.ai/recovery-contract.md` — safe retry, rollback, compensation and human intervention.
+
+The first live integration stress-test is `examples/tradingview-mcp/`, with `examples/github-actions/` as a second domain. The provider-neutral runtime under `runtime/` implements the canonical lifecycle: `PROPOSE → DECIDE → APPROVE → EXECUTE → VERIFY → AUDIT → RECOVER`.
+
 ## Next experiment
 
 Give a coding agent this short task: “Add task completion following the reference.”
