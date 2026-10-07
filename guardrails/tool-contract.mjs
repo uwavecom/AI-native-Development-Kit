@@ -49,6 +49,10 @@ export function validateToolRegistry(tools) {
     if (tool.access !== 'read' && typeof tool.retryPolicy !== 'string') {
       fail('TOOL014', 'Write/destructive tools must declare retryPolicy.');
     }
+
+    if (tool.access !== 'read' && (typeof tool.recoveryStrategy !== 'string' || !tool.recoveryStrategy.trim())) {
+      fail('TOOL015', 'Write/destructive tools must declare recoveryStrategy.');
+    }
   }
 
   return errors;
