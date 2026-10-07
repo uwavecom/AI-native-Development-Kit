@@ -33,7 +33,7 @@ export class ApprovalCoordinator {
       `SELECT receipt_json, claimed_at, consumed_at
        FROM approvals WHERE id = ?`,
       id,
-    ).one();
+    ).toArray()[0];
 
     if (!row) return null;
 
@@ -49,7 +49,7 @@ export class ApprovalCoordinator {
       `SELECT action_signature, receipt_json, claimed_at, consumed_at
        FROM approvals WHERE id = ?`,
       id,
-    ).one();
+    ).toArray()[0];
 
     if (!row || row.consumed_at) return { claimed: false, reason: 'UNAVAILABLE' };
     if (row.action_signature !== expectedSignature) {
