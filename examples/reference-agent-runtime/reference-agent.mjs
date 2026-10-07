@@ -1,16 +1,21 @@
 import { createActionProposal } from '../../runtime/action-proposal.mjs';
 import { runHardenedSafeAction } from '../../runtime/hardened-safe-action.mjs';
 import { runWorkflow } from '../../runtime/workflow/run-workflow.mjs';
+import { CapabilityRegistry } from '../../runtime/capabilities/capability-registry.mjs';
 import { githubTools } from '../github-actions/tools.mjs';
 import { tradingViewTools } from '../tradingview-mcp/tools.mjs';
-
-const find = (tools, name) => {
-  const tool = tools.find(item => item.name === name);
-  if (!tool) throw new Error(`UNKNOWN_TOOL:${name}`);
-  return tool;
-};
-
 export function createReferenceAgent({ stateStore, lock, budget, github, tradingView, requestApproval = async () => null }) {
+  const capabilities = new CapabilityRegistry();
+  capabilities.register('github', { tools: githubTools });
+  capabilities.register('tradingview', { tools: tradingViewTools });
+
+  const getTool = (provider, name) => {
+    const descriptor = capabilities.get(provider);
+    const tool = descriptor?.tools.find(item => item.name === name);
+    if (!tool) throw new Error(`UNKNOWN_CAPABILITY:${provider}:${name}`);
+    return tool;
+  };
+
   async function runTool({ tool, actor, proposal, approval, input, invoke, verify, inspectState, rollbackAction, compensationAction }) {
     return runHardenedSafeAction({
       tool,
@@ -31,11 +36,36 @@ export function createReferenceAgent({ stateStore, lock, budget, github, trading
 
   return {
     async analyzeAndCreateAlert({ actor, symbol = 'NVDA', threshold, condition = 'cross_up' }) {
-      const matches = await tradingView.searchSymbols(symbol);
+      const searchProposal = createActionProposal({
+        toolName: 'search_symbols',
+        target: symbol,
+        params: { query: symbol },
+      });
+      const searchAction = await runTool({
+        tool: getTool('tradingview', 'search_symbols'),
+        actor,
+        proposal: searchProposal,
+        input: searchProposal.params,
+        invoke: () => tradingView.searchSymbols(symbol),
+      });
+      const matches = searchAction.execution.providerResult ?? [];
       const resolved = matches[0]?.symbol;
-      if (!resolved) return { resolved: false, reason: 'SYMBOL_NOT_FOUND' };
+      if (!resolved) return { resolved: false, reason: 'SYMBOL_NOT_FOUND', searchAction };
 
-      const screener = await tradingView.runScreener();
+      const screenerProposal = createActionProposal({
+        toolName: 'run_screener',
+        target: resolved,
+        params: { symbol: resolved },
+      });
+      const screenerAction = await runTool({
+        tool: getTool('tradingview', 'run_screener'),
+        actor,
+        proposal: screenerProposal,
+        input: screenerProposal.params,
+        invoke: () => tradingView.runScreener(),
+      });
+      const screener = screenerAction.execution.providerResult ?? [];
+
       const proposal = createActionProposal({
         toolName: 'create_alert',
         target: resolved,
@@ -44,7 +74,7 @@ export function createReferenceAgent({ stateStore, lock, budget, github, trading
       const approval = await requestApproval(proposal);
 
       const action = await runTool({
-        tool: find(tradingViewTools, 'create_alert'),
+        tool: getTool('tradingview', 'create_alert'),
         actor,
         proposal,
         approval,
@@ -58,11 +88,10 @@ export function createReferenceAgent({ stateStore, lock, budget, github, trading
         }),
       });
 
-      return { resolved: action.resolved, resolvedSymbol: resolved, screener, proposal, action };
+      return { resolved: action.resolved, resolvedSymbol: resolved, searchAction, screenerAction, screener, proposal, action };
     },
 
     async githubChangeWorkflow({ actor, path = 'README.md', content, branch = 'agent/change' }) {
-      const tools = githubTools;
       let prNumber = null;
 
       const steps = [
@@ -79,7 +108,7 @@ export function createReferenceAgent({ stateStore, lock, budget, github, trading
           if (step.id === 'fetch') {
             const proposal = createActionProposal({ toolName: 'fetch_file', target: path });
             const action = await runTool({
-              tool: find(tools, 'fetch_file'),
+              tool: getTool('github', 'fetch_file'),
               actor,
               proposal,
               input: { path },
@@ -91,7 +120,7 @@ export function createReferenceAgent({ stateStore, lock, budget, github, trading
           if (step.id === 'branch') {
             const proposal = createActionProposal({ toolName: 'create_branch', target: branch, params: { base: 'main' } });
             const action = await runTool({
-              tool: find(tools, 'create_branch'),
+              tool: getTool('github', 'create_branch'),
               actor,
               proposal,
               input: proposal.params,
@@ -105,7 +134,7 @@ export function createReferenceAgent({ stateStore, lock, budget, github, trading
             const proposal = createActionProposal({ toolName: 'update_file', target: path, params: { content, branch } });
             const approval = await requestApproval(proposal);
             const action = await runTool({
-              tool: find(tools, 'update_file'),
+              tool: getTool('github', 'update_file'),
               actor,
               proposal,
               approval,
@@ -121,7 +150,7 @@ export function createReferenceAgent({ stateStore, lock, budget, github, trading
             const proposal = createActionProposal({ toolName: 'create_pull_request', target: branch, params: { head: branch, base: 'main' } });
             const approval = await requestApproval(proposal);
             const action = await runTool({
-              tool: find(tools, 'create_pull_request'),
+              tool: getTool('github', 'create_pull_request'),
               actor,
               proposal,
               approval,
@@ -143,7 +172,7 @@ export function createReferenceAgent({ stateStore, lock, budget, github, trading
           });
           const approval = await requestApproval(proposal);
           const action = await runTool({
-            tool: find(tools, 'merge_pull_request'),
+            tool: getTool('github', 'merge_pull_request'),
             actor,
             proposal,
             approval,
