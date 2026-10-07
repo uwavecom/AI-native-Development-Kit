@@ -9,11 +9,15 @@ function hasPermissions(actor, required = []) {
   return required.every(permission => granted.has(permission));
 }
 
+import { isApprovalFresh } from './action-proposal.mjs';
+
 function approvalMatches(tool, context) {
   const proposal = context.proposal;
   const approval = context.approval;
 
   if (!approval?.valid || !proposal) return false;
+  if (!isApprovalFresh(approval, context.now ?? Date.now())) return false;
+  if (approval.consumed === true) return false;
   if (proposal.toolName !== tool.name) return false;
   if (approval.toolName !== proposal.toolName) return false;
 
