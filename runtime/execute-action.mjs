@@ -20,9 +20,15 @@ export async function executeAction({
 }) {
   const decision = decideAction(tool, actor, context);
 
+  const auditContext = {
+    tool: tool?.name,
+    target: context.proposal?.target ?? null,
+    actionSignature: context.proposal?.actionSignature ?? null,
+  };
+
   await audit({
     event: 'policy_decided',
-    tool: tool?.name,
+    ...auditContext,
     decision: decision.decision,
     reason: decision.reason,
   });
@@ -35,14 +41,15 @@ export async function executeAction({
     };
   }
 
-  await audit({ event: 'execution_started', tool: tool.name });
+  if (context.approval?.valid === true) await audit({ event: 'approval_satisfied', ...auditContext });
+  await audit({ event: 'execution_started', ...auditContext });
 
   let providerResult;
   try {
     providerResult = await invoke(input);
   } catch (error) {
     if (error?.code === 'TIMEOUT_AFTER_DISPATCH') {
-      await audit({ event: 'execution_unknown', tool: tool.name, reason: 'TIMEOUT_AFTER_DISPATCH' });
+      await audit({ event: 'execution_unknown', ...auditContext, reason: 'TIMEOUT_AFTER_DISPATCH' });
       return {
         status: ExecutionStatus.UNKNOWN,
         decision,
@@ -52,7 +59,7 @@ export async function executeAction({
       };
     }
 
-    await audit({ event: 'execution_failed', tool: tool.name, reason: error?.code ?? 'DEPENDENCY_ERROR' });
+    await audit({ event: 'execution_failed', ...auditContext, reason: error?.code ?? 'DEPENDENCY_ERROR' });
     return {
       status: ExecutionStatus.FAILED,
       decision,
@@ -75,7 +82,7 @@ export async function executeAction({
       };
     }
 
-    await audit({ event: 'verification_failed', tool: tool.name, reason: 'VERIFIER_MISSING' });
+    await audit({ event: 'verification_failed', ...auditContext, reason: 'VERIFIER_MISSING' });
     return {
       status: ExecutionStatus.VERIFICATION_FAILED,
       decision,
@@ -101,7 +108,7 @@ export async function executeAction({
       };
     }
 
-    await audit({ event: 'verification_failed', tool: tool.name, reason: verification?.reason ?? 'INCONCLUSIVE' });
+    await audit({ event: 'verification_failed', ...auditContext, reason: verification?.reason ?? 'INCONCLUSIVE' });
     return {
       status: ExecutionStatus.VERIFICATION_FAILED,
       decision,
@@ -112,7 +119,7 @@ export async function executeAction({
       error: 'VERIFICATION_FAILED',
     };
   } catch (error) {
-    await audit({ event: 'verification_failed', tool: tool.name, reason: error?.code ?? 'DEPENDENCY_ERROR' });
+    await audit({ event: 'verification_failed', ...auditContext, reason: error?.code ?? 'DEPENDENCY_ERROR' });
     return {
       status: ExecutionStatus.VERIFICATION_FAILED,
       decision,
