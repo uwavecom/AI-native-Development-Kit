@@ -165,3 +165,60 @@ test('hardened action denies execution when budget is exhausted', async () => {
   assert.equal(result.execution.decision.reason, 'BUDGET_EXHAUSTED');
   assert.equal(invoked, false);
 });
+
+
+test('one-shot approval can be claimed only once', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'kit-claim-'));
+  try {
+    const store = new FileStateStore(root);
+    const proposal = createActionProposal({
+      toolName: 'create_alert',
+      target: 'NASDAQ:NVDA',
+      params: { threshold: 150 },
+    });
+    const approval = createApprovalReceipt({
+      proposal,
+      actorId: 'human-1',
+      approvedAt: new Date().toISOString(),
+      oneShot: true,
+    });
+    await store.putApproval('approval-claim', approval);
+
+    const [a, b] = await Promise.all([
+      store.claimApproval('approval-claim', proposal.actionSignature),
+      store.claimApproval('approval-claim', proposal.actionSignature),
+    ]);
+
+    assert.equal([a.claimed, b.claimed].filter(Boolean).length, 1);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('state ids cannot escape the state root', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'kit-state-id-'));
+  try {
+    const store = new FileStateStore(root);
+    await assert.rejects(
+      store.putApproval('../escape', { valid: true }),
+      { message: 'INVALID_STATE_ID' }
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('workflow does not claim full compensation when completed steps are uncompensatable', async () => {
+  const result = await runWorkflow({
+    steps: [
+      { id: 'one', compensate: false },
+      { id: 'two', compensate: false },
+    ],
+    executeStep: async step => ({ resolved: step.id === 'one' }),
+    compensateStep: async () => ({ resolved: true }),
+  });
+
+  assert.equal(result.status, 'PARTIAL');
+  assert.equal(result.allCompensated, false);
+  assert.deepEqual(result.uncompensatedSteps, ['one']);
+});
