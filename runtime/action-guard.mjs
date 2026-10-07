@@ -41,9 +41,7 @@ export function createActionGuard({
       throw new Error('APPROVAL_AUTHORITY_REQUIRED');
     }
 
-    const verified = approvalAuthority.claim
-      ? await approvalAuthority.claim(approvalCredential, proposal)
-      : await approvalAuthority.verify(approvalCredential, proposal);
+    const verified = await approvalAuthority.verify(approvalCredential, proposal);
     if (!verified.valid) {
       const error = new Error(verified.reason ?? 'INVALID_APPROVAL_CREDENTIAL');
       error.code = verified.reason ?? 'INVALID_APPROVAL_CREDENTIAL';
@@ -68,6 +66,18 @@ export function createActionGuard({
     const tool = getTool(proposal?.toolName);
     const approval = await verifyApproval(approvalCredential, proposal);
 
+    const guardedInvoke = approvalCredential && approvalAuthority?.claim
+      ? async (...args) => {
+          const claimed = await approvalAuthority.claim(approvalCredential, proposal);
+          if (!claimed.valid) {
+            const error = new Error(claimed.reason ?? 'INVALID_APPROVAL_CREDENTIAL');
+            error.code = claimed.reason ?? 'INVALID_APPROVAL_CREDENTIAL';
+            throw error;
+          }
+          return invoke(...args);
+        }
+      : invoke;
+
     return runHardenedSafeAction({
       tool,
       actor,
@@ -75,7 +85,7 @@ export function createActionGuard({
       approval,
       policy,
       input,
-      invoke,
+      invoke: guardedInvoke,
       verify,
       inspectState,
       retry,
