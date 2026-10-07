@@ -16,6 +16,9 @@ prints a JSON PASS/FAIL record and exits nonzero on failure.
 
 Read `AGENTS.md` and `.ai/architecture-contract.md`, then inspect
 `examples/reference-feature/composition/app.mjs` and `test/tasks.test.mjs`.
+The full agent constitution and architecture contract each contain 20 sections.
+`.ai/node-reference-profile.md` defines the executable reference's layer rules,
+runtime-versus-source dependency direction, implemented checks, and limitations.
 The example creates a task, validates input, checks permission, derives ownership
 from trusted context, and writes through a repository port into a memory adapter.
 
