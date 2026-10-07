@@ -176,6 +176,8 @@ Examples include:
 
 Feature logic should depend on project interfaces where practical, not directly on vendor implementation details.
 
+For AI-invoked external tools, follow the agent-safe action contracts in `.ai/`: tool contract, action policy, approval contract, execution contract, and recovery contract. Do not execute consequential actions outside the canonical safe-action lifecycle, and do not treat rollback or compensation as a privileged bypass.
+
 ---
 
 # 9. Database Access
