@@ -18,7 +18,7 @@ export function createOpenAIAgentsToolAdapter({
   if (typeof execute !== 'function') throw new Error('EXECUTE_REQUIRED');
 
   return {
-    needsApproval: async (args) => {
+    needsApproval: async (runContext, args, callId) => {
       const proposal = guard.propose({
         toolName,
         target: targetFromArgs(args),
