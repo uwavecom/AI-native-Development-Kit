@@ -18,7 +18,7 @@ OpenAI agent proposes tool call
 → audit/recovery semantics apply
 ```
 
-Use `createOpenAIAgentsToolAdapter()` and pass its callbacks into an `@openai/agents` function tool. The adapter follows the current SDK callback shape: `needsApproval(args)` and `execute(args, context, details)`.
+Use `createOpenAIAgentsToolAdapter()` and pass its callbacks into an `@openai/agents` function tool. The adapter follows the current SDK callback shape: `needsApproval(runContext, input, callId?)` and `execute(args, context, details)`.
 
 The `getApprovalCredential` callback must exchange a trusted application-side approval decision for a credential. Do not construct credentials from model-controlled data or an untrusted serialized run snapshot.
 
