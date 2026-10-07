@@ -1,0 +1,13 @@
+{
+  "name": "ai-native-development-kit-real-sdk-validation",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node openai-agents.mjs && node mcp-v2.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.3.1",
+    "@openai/agents": "0.18.0",
+    "zod": "4.6.5"
+  }
+}
