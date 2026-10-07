@@ -44,13 +44,20 @@ export async function runWorkflow({
       });
     }
 
-    const allCompensated = compensation.every(item => item.result?.resolved === true);
+    const compensatable = completed.filter(item => item.compensate === true);
+    const uncompensatable = completed.filter(item => item.compensate !== true);
+    const allCompensated =
+      uncompensatable.length === 0 &&
+      compensation.length === compensatable.length &&
+      compensation.every(item => item.result?.resolved === true);
+
     return {
       status: completed.length === 0 ? WorkflowStatus.FAILED : WorkflowStatus.PARTIAL,
       resolved: false,
       failedStep: step.id,
       results,
       compensation,
+      uncompensatedSteps: uncompensatable.map(item => item.id),
       allCompensated,
     };
   }
