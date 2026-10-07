@@ -7,20 +7,30 @@ import { join } from 'node:path';
 import { FileStateStore } from '../runtime/state/file-state-store.mjs';
 import { KeyedLock } from '../runtime/concurrency/keyed-lock.mjs';
 import { FixedWindowBudget } from '../runtime/budget/fixed-window-budget.mjs';
+import { createApprovalReceipt } from '../runtime/action-proposal.mjs';
 import { createReferenceAgent } from '../examples/reference-agent-runtime/reference-agent.mjs';
 import { FakeGitHubProvider, FakeTradingViewProvider } from '../examples/reference-agent-runtime/fake-providers.mjs';
 
-async function fixture(limit = 100) {
+async function fixture(limit = 100, approvalPolicy = () => true) {
   const root = await mkdtemp(join(tmpdir(), 'kit-reference-agent-'));
   const stateStore = new FileStateStore(root);
   const github = new FakeGitHubProvider();
   const tradingView = new FakeTradingViewProvider();
+  const requestApproval = async proposal => approvalPolicy(proposal)
+    ? createApprovalReceipt({
+        proposal,
+        actorId: 'human-1',
+        approvedAt: new Date().toISOString(),
+      })
+    : null;
+
   const agent = createReferenceAgent({
     stateStore,
     lock: new KeyedLock(),
     budget: new FixedWindowBudget({ limit, windowMs: 60_000 }),
     github,
     tradingView,
+    requestApproval,
   });
   return { root, stateStore, github, tradingView, agent };
 }
@@ -58,7 +68,7 @@ test('timeout-after-dispatch is recovered by provider-state inspection', async (
 });
 
 test('GitHub workflow stops before merge without merge approval', async () => {
-  const x = await fixture();
+  const x = await fixture(100, proposal => proposal.toolName !== 'merge_pull_request');
   try {
     const result = await x.agent.githubChangeWorkflow({
       actor: {
@@ -66,7 +76,6 @@ test('GitHub workflow stops before merge without merge approval', async () => {
         permissions: ['repo:read', 'repo:write', 'repo:merge'],
       },
       content: 'changed',
-      approveMerge: false,
     });
 
     assert.equal(result.status, 'PARTIAL');
@@ -86,7 +95,6 @@ test('GitHub workflow completes when merge has bound approval', async () => {
         permissions: ['repo:read', 'repo:write', 'repo:merge'],
       },
       content: 'changed',
-      approveMerge: true,
     });
 
     assert.equal(result.status, 'SUCCEEDED');
@@ -106,7 +114,6 @@ test('budget exhaustion prevents uncontrolled agent execution', async () => {
         permissions: ['repo:read', 'repo:write', 'repo:merge'],
       },
       content: 'changed',
-      approveMerge: true,
     });
 
     assert.equal(result.status, 'PARTIAL');
