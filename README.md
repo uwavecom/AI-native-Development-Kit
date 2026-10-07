@@ -1,52 +1,173 @@
 # AI-native Development Kit
 
-A small, agent-independent development foundation. Version 0.2 demonstrates
-enforceable import boundaries and tested application behavior without vendor SDKs.
+**Portable action governance for AI agents.**
 
-## Run
+AI agents can call real tools. This kit controls **which actions may execute, which require trusted approval, and how to verify what actually happened** — without replacing your agent framework or workflow engine.
 
-Install Node.js 22 or newer, then run `npm run verify`. No dependency install is required.
-Verification checks syntax, architecture, behavior, and the guard itself. Each stage
-prints a JSON PASS/FAIL record and exits nonzero on failure.
+Use it with OpenAI Agents SDK, MCP, custom agents, or existing durable runtimes.
 
-`npm test` runs behavior tests plus guard tests with the VM flag configured below.
-`npm run check:architecture` runs the import guard alone.
+## Why
 
-## Reference
+Authentication tells you whether an agent may access a system.
 
-Read `AGENTS.md` and `.ai/architecture-contract.md`, then inspect
-`examples/reference-feature/composition/app.mjs` and `test/tasks.test.mjs`.
-The full agent constitution and architecture contract each contain 20 sections.
-`.ai/node-reference-profile.md` defines the executable reference's layer rules,
-runtime-versus-source dependency direction, implemented checks, and limitations.
-The example creates a task, validates input, checks permission, derives ownership
-from trusted context, and writes through a repository port into a memory adapter.
+This kit answers the harder question:
 
-The neutral architecture contract and this Node.js implementation are distinct:
-future framework profiles must provide actual typecheck, lint, build, authentication,
-database, and deployment checks. None of those are claimed by this version.
-The memory adapter is a demo; it is not durable storage. No UI or HTTP endpoint is supplied.
+> Can this agent perform this exact action, on this exact target, with these exact parameters, under this policy, with this approval?
 
-## Agent tool contracts
+It provides:
 
-For agent-invoked external capabilities, also read:
+- canonical action proposals and signatures;
+- tool risk/access metadata;
+- policy decisions;
+- verifiable approval credentials;
+- one-shot approval semantics;
+- execution budgets;
+- post-action verification;
+- explicit UNKNOWN execution state;
+- recovery rules;
+- structured audit;
+- policy/tool-contract provenance;
+- framework adapters.
 
-- `.ai/tool-contract.md` — tool metadata, access class, retries, verification, partial results, auditability;
-- `.ai/action-policy.md` — default approval and execution policy for AI-initiated actions;
-- `.ai/approval-contract.md` — action-bound, expiring/one-shot approvals;
-- `.ai/execution-contract.md` — execution, unknown state, verification and audit;
-- `.ai/recovery-contract.md` — safe retry, rollback, compensation and human intervention.
+It does **not** try to replace Temporal, Restate, Dapr, LangGraph, OpenAI Agents SDK, or your application.
 
-The first live integration stress-test is `examples/tradingview-mcp/`, with `examples/github-actions/` as a second domain. The provider-neutral runtime under `runtime/` implements the canonical lifecycle: `PROPOSE → DECIDE → APPROVE → EXECUTE → VERIFY → AUDIT → RECOVER`.
+## 10-minute quick start
 
-## Next experiment
+Requires Node.js 22+.
 
-Give a coding agent this short task: “Add task completion following the reference.”
-Review whether it discovers the pattern, preserves boundaries, adds meaningful tests,
-and passes verify. This is an experiment to run, not an already demonstrated result.
+Clone the repository and run:
 
-## Runtime hardening
+```bash
+node examples/quickstart.mjs
+```
 
-Version 0.2 extends the safe-action lifecycle with durable reference state, keyed concurrency control, execution budgets, capability discovery, and multi-step workflow semantics. See `.ai/runtime-hardening.md` and `.ai/decisions/0002-runtime-hardening-v0.2.md`.
+The example protects a destructive `merge_pull_request` action.
 
-The reference file store and keyed lock demonstrate semantics only; production distributed deployments must provide appropriate durable/distributed adapters.
+The core flow is:
+
+```js
+import {
+  createActionGuard,
+  createSignedApprovalAuthority,
+} from './runtime/index.mjs';
+
+const authority = createSignedApprovalAuthority({
+  secret: process.env.APPROVAL_SECRET,
+});
+
+const guard = createActionGuard({
+  tools,
+  policyVersion: 'policy-v1',
+  toolContractVersion: 'tools-v1',
+  approvalAuthority: authority,
+});
+
+const proposal = guard.propose({
+  toolName: 'merge_pull_request',
+  target: 'PR#42',
+  params: { prNumber: 42, base: 'main' },
+});
+
+// This credential must come from a trusted application/human boundary.
+const approvalCredential = await authority.issue(proposal, {
+  approverId: 'human-reviewer',
+});
+
+const result = await guard.execute({
+  actor: { permissions: ['repo:merge'] },
+  proposal,
+  approvalCredential,
+  invoke: () => github.mergePullRequest(42),
+  verify: async ({ providerResult }) => ({
+    verified: providerResult.merged === true,
+  }),
+});
+```
+
+Possible runtime outcomes include:
+
+```text
+PENDING
+SUCCEEDED
+FAILED
+UNKNOWN
+VERIFICATION_FAILED
+```
+
+## Adapters
+
+### OpenAI Agents SDK
+
+Use `createOpenAIAgentsToolAdapter()` from `./adapters/openai-agents.mjs`.
+
+The adapter is dependency-free: pass its `needsApproval` and `execute` callbacks into an `@openai/agents` function tool.
+
+For sensitive tools, OpenAI's HITL flow may pause the run first. After your trusted application approves the interruption, exchange that decision for a verifiable Development Kit credential. Do not derive trusted approval from model-controlled state.
+
+### MCP
+
+Use `createMcpToolCallGuard()` from `./adapters/mcp.mjs`.
+
+It wraps an MCP-style tool invocation and applies the same proposal, policy, approval, execution, verification, and audit semantics without depending on a specific MCP SDK.
+
+## Architecture
+
+The canonical lifecycle is:
+
+```text
+DISCOVER
+→ PROPOSE
+→ DECIDE
+→ REQUEST APPROVAL
+→ VERIFY TRUSTED APPROVAL
+→ EXECUTE
+→ VERIFY
+→ AUDIT
+→ RECOVER
+```
+
+Low-risk reads can execute autonomously when authorized. Consequential actions can require bound approval.
+
+Approval is tied to the canonical action signature, including policy provenance. Changing the target, parameters, scope, or pinned policy identity changes the signature.
+
+## What this project is not
+
+This is **not**:
+
+- an LLM framework;
+- an agent loop;
+- a durable workflow engine;
+- an agent memory system;
+- a general observability platform;
+- an enterprise agent inventory;
+- a sandbox runtime.
+
+Use mature systems for those problems. This project focuses on the semantic control boundary around consequential actions.
+
+## Verify the repository
+
+```bash
+npm run verify
+```
+
+Verification checks syntax, architectural boundaries, tool-contract guardrails, behavior, runtime hardening, production profiles, and public API/adapters.
+
+## Reference material
+
+- `.ai/architecture-contract.md`
+- `.ai/tool-contract.md`
+- `.ai/action-policy.md`
+- `.ai/approval-contract.md`
+- `.ai/execution-contract.md`
+- `.ai/recovery-contract.md`
+- `.ai/runtime-hardening.md`
+- `audits/reference-agent-runtime-2026-10-07.md`
+- `audits/market-technical-validation-2026-10-07.md`
+
+Reference domains include GitHub and TradingView. The Cloudflare profile demonstrates how provider-neutral semantics map onto production infrastructure.
+
+## Project status
+
+v0.3 is an early reference release focused on real developer usability.
+
+The next validation target is not more abstractions. It is whether an external developer can protect a real tool call with this kit without needing help from the authors.
