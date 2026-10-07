@@ -44,6 +44,8 @@ test('TradingView scenario completes through proposal, approval, execution and v
     });
     assert.equal(result.resolved, true);
     assert.equal(result.resolvedSymbol, 'NASDAQ:NVDA');
+    assert.equal(result.searchAction.execution.status, 'SUCCEEDED');
+    assert.equal(result.screenerAction.execution.status, 'SUCCEEDED');
     assert.equal(result.action.execution.status, 'SUCCEEDED');
     assert.ok(x.tradingView.findAlert(result.proposal.params));
   } finally {
@@ -120,5 +122,45 @@ test('budget exhaustion prevents uncontrolled agent execution', async () => {
     assert.equal(result.failedStep, 'branch');
   } finally {
     await rm(x.root, { recursive: true, force: true });
+  }
+});
+
+
+test('hardened runtime supports asynchronous budget adapters', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'kit-async-budget-'));
+  try {
+    const stateStore = new FileStateStore(root);
+    const github = new FakeGitHubProvider();
+    const tradingView = new FakeTradingViewProvider();
+    let calls = 0;
+    const asyncBudget = {
+      async consume() {
+        calls += 1;
+        return { allowed: true, remaining: 9, resetAt: Date.now() + 60_000 };
+      },
+    };
+    const requestApproval = async proposal => createApprovalReceipt({
+      proposal,
+      actorId: 'human-1',
+      approvedAt: new Date().toISOString(),
+    });
+    const agent = createReferenceAgent({
+      stateStore,
+      lock: new KeyedLock(),
+      budget: asyncBudget,
+      github,
+      tradingView,
+      requestApproval,
+    });
+
+    const result = await agent.analyzeAndCreateAlert({
+      actor: { id: 'agent-1', permissions: ['alert:write'] },
+      threshold: 160,
+    });
+
+    assert.equal(result.resolved, true);
+    assert.equal(calls, 3);
+  } finally {
+    await rm(root, { recursive: true, force: true });
   }
 });
