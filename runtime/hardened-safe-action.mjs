@@ -52,7 +52,7 @@ export async function runHardenedSafeAction({
 
   const execute = async () => {
     if (budget) {
-      const result = budget.consume(budgetKey ?? actor?.id ?? actor?.userId ?? 'anonymous');
+      const result = await budget.consume(budgetKey ?? actor?.id ?? actor?.userId ?? 'anonymous');
       await audit({
         event: result.allowed ? 'budget_consumed' : 'budget_exhausted',
         remaining: result.remaining,
