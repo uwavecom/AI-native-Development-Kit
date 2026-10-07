@@ -1,4 +1,4 @@
-import { createActionProposal, createApprovalReceipt } from '../../runtime/action-proposal.mjs';
+import { createActionProposal } from '../../runtime/action-proposal.mjs';
 import { runHardenedSafeAction } from '../../runtime/hardened-safe-action.mjs';
 import { runWorkflow } from '../../runtime/workflow/run-workflow.mjs';
 import { githubTools } from '../github-actions/tools.mjs';
@@ -10,7 +10,7 @@ const find = (tools, name) => {
   return tool;
 };
 
-export function createReferenceAgent({ stateStore, lock, budget, github, tradingView }) {
+export function createReferenceAgent({ stateStore, lock, budget, github, tradingView, requestApproval = async () => null }) {
   async function runTool({ tool, actor, proposal, approval, input, invoke, verify, inspectState, rollbackAction, compensationAction }) {
     return runHardenedSafeAction({
       tool,
@@ -30,7 +30,7 @@ export function createReferenceAgent({ stateStore, lock, budget, github, trading
   }
 
   return {
-    async analyzeAndCreateAlert({ actor, symbol = 'NVDA', threshold, condition = 'cross_up', approverId = 'human-1' }) {
+    async analyzeAndCreateAlert({ actor, symbol = 'NVDA', threshold, condition = 'cross_up' }) {
       const matches = await tradingView.searchSymbols(symbol);
       const resolved = matches[0]?.symbol;
       if (!resolved) return { resolved: false, reason: 'SYMBOL_NOT_FOUND' };
@@ -41,11 +41,7 @@ export function createReferenceAgent({ stateStore, lock, budget, github, trading
         target: resolved,
         params: { symbol: resolved, threshold, condition },
       });
-      const approval = createApprovalReceipt({
-        proposal,
-        actorId: approverId,
-        approvedAt: new Date().toISOString(),
-      });
+      const approval = await requestApproval(proposal);
 
       const action = await runTool({
         tool: find(tradingViewTools, 'create_alert'),
@@ -65,7 +61,7 @@ export function createReferenceAgent({ stateStore, lock, budget, github, trading
       return { resolved: action.resolved, resolvedSymbol: resolved, screener, proposal, action };
     },
 
-    async githubChangeWorkflow({ actor, path = 'README.md', content, branch = 'agent/change', approveMerge = false }) {
+    async githubChangeWorkflow({ actor, path = 'README.md', content, branch = 'agent/change' }) {
       const tools = githubTools;
       let prNumber = null;
 
@@ -107,11 +103,7 @@ export function createReferenceAgent({ stateStore, lock, budget, github, trading
 
           if (step.id === 'update') {
             const proposal = createActionProposal({ toolName: 'update_file', target: path, params: { content, branch } });
-            const approval = createApprovalReceipt({
-              proposal,
-              actorId: 'human-1',
-              approvedAt: new Date().toISOString(),
-            });
+            const approval = await requestApproval(proposal);
             const action = await runTool({
               tool: find(tools, 'update_file'),
               actor,
@@ -127,11 +119,7 @@ export function createReferenceAgent({ stateStore, lock, budget, github, trading
 
           if (step.id === 'pr') {
             const proposal = createActionProposal({ toolName: 'create_pull_request', target: branch, params: { head: branch, base: 'main' } });
-            const approval = createApprovalReceipt({
-              proposal,
-              actorId: 'human-1',
-              approvedAt: new Date().toISOString(),
-            });
+            const approval = await requestApproval(proposal);
             const action = await runTool({
               tool: find(tools, 'create_pull_request'),
               actor,
@@ -153,9 +141,7 @@ export function createReferenceAgent({ stateStore, lock, budget, github, trading
             target: `PR#${prNumber}`,
             params: { prNumber, base: 'main' },
           });
-          const approval = approveMerge
-            ? createApprovalReceipt({ proposal, actorId: 'human-1', approvedAt: new Date().toISOString() })
-            : null;
+          const approval = await requestApproval(proposal);
           const action = await runTool({
             tool: find(tools, 'merge_pull_request'),
             actor,
