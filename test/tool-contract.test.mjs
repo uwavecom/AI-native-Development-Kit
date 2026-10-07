@@ -2,9 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { validateToolRegistry } from '../guardrails/tool-contract.mjs';
 import { tradingViewTools } from '../examples/tradingview-mcp/tools.mjs';
+import { githubTools } from '../examples/github-actions/tools.mjs';
 
-test('TradingView reference registry satisfies the executable tool contract', () => {
+test('reference registries satisfy the executable tool contract', () => {
   assert.deepEqual(validateToolRegistry(tradingViewTools), []);
+  assert.deepEqual(validateToolRegistry(githubTools), []);
 });
 
 test('guard rejects destructive tool without approval, audit, or verification', () => {
