@@ -8,7 +8,7 @@ export function createOpenAIAgentsToolAdapter({
   toolName,
   targetFromArgs = () => null,
   scopeFromArgs = () => null,
-  requestApproval = null,
+  getApprovalCredential = null,
   execute,
   verify,
   inspectState,
@@ -41,8 +41,12 @@ export function createOpenAIAgentsToolAdapter({
         scope: scopeFromArgs(args),
       });
 
-      const approvalCredential = requestApproval
-        ? await requestApproval({ proposal, runContext, args })
+      // For sensitive tools the OpenAI Agents SDK may already have paused and
+      // collected a human decision via needsApproval. This callback exchanges
+      // that trusted application-side decision for a verifiable credential.
+      // Do not mint credentials from model-controlled state.
+      const approvalCredential = getApprovalCredential
+        ? await getApprovalCredential({ proposal, runContext, args })
         : null;
 
       const result = await guard.execute({
