@@ -9,6 +9,20 @@ function hasPermissions(actor, required = []) {
   return required.every(permission => granted.has(permission));
 }
 
+function approvalMatches(tool, context) {
+  const proposal = context.proposal;
+  const approval = context.approval;
+
+  if (!approval?.valid || !proposal) return false;
+  if (proposal.toolName !== tool.name) return false;
+  if (approval.toolName !== proposal.toolName) return false;
+
+  if ((approval.target ?? null) !== (proposal.target ?? null)) return false;
+  if ((approval.actionSignature ?? null) !== (proposal.actionSignature ?? null)) return false;
+
+  return true;
+}
+
 export function decideAction(tool, actor = {}, context = {}) {
   const deny = reason => ({ decision: Decision.DENY, reason });
   const requireApproval = reason => ({ decision: Decision.REQUIRE_APPROVAL, reason });
@@ -23,9 +37,9 @@ export function decideAction(tool, actor = {}, context = {}) {
 
   if (tool.riskLevel === 'critical') {
     if (context.policy?.allowCritical !== true) return deny('CRITICAL_ACTION_DISABLED');
-    return context.approval?.valid === true
+    return approvalMatches(tool, context)
       ? allow('CRITICAL_ACTION_APPROVED')
-      : requireApproval('CRITICAL_ACTION_REQUIRES_APPROVAL');
+      : requireApproval('CRITICAL_ACTION_REQUIRES_BOUND_APPROVAL');
   }
 
   const consequential =
@@ -34,13 +48,17 @@ export function decideAction(tool, actor = {}, context = {}) {
     tool.requiresApproval === true;
 
   if (consequential) {
-    return context.approval?.valid === true
-      ? allow('APPROVAL_SATISFIED')
-      : requireApproval('APPROVAL_REQUIRED');
+    return approvalMatches(tool, context)
+      ? allow('BOUND_APPROVAL_SATISFIED')
+      : requireApproval('BOUND_APPROVAL_REQUIRED');
   }
 
   if (tool.access === 'write' && tool.riskLevel === 'medium') {
-    if (context.policy?.allowMediumWrite === false) return requireApproval('MEDIUM_WRITE_POLICY_REQUIRES_APPROVAL');
+    if (context.policy?.allowMediumWrite === false) {
+      return approvalMatches(tool, context)
+        ? allow('BOUND_APPROVAL_SATISFIED')
+        : requireApproval('MEDIUM_WRITE_POLICY_REQUIRES_BOUND_APPROVAL');
+    }
   }
 
   return allow('POLICY_ALLOWS');
