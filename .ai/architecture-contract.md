@@ -345,6 +345,8 @@ A function that performs a consequential side effect should make that behavior d
 
 Avoid hidden side effects in generic utilities.
 
+AI-initiated external actions must additionally follow the repository's agent-safe action contracts: `.ai/tool-contract.md`, `.ai/action-policy.md`, `.ai/approval-contract.md`, `.ai/execution-contract.md`, and `.ai/recovery-contract.md`. Consequential recovery actions must not bypass the same policy and approval boundaries.
+
 ---
 
 # 12. Security Invariants
