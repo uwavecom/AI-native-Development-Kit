@@ -12,8 +12,8 @@ export async function runSafeAction({
   verify,
   inspectState,
   retry,
-  compensate,
-  rollback,
+  compensationAction,
+  rollbackAction,
   audit = async () => {},
 }) {
   const context = { proposal, approval, policy };
@@ -41,8 +41,8 @@ export async function runSafeAction({
     execution,
     inspectState,
     retry,
-    compensate,
-    rollback,
+    compensationAction,
+    rollbackAction,
     audit,
   });
 
