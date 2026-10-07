@@ -27,8 +27,24 @@ future framework profiles must provide actual typecheck, lint, build, authentica
 database, and deployment checks. None of those are claimed by this version.
 The memory adapter is a demo; it is not durable storage. No UI or HTTP endpoint is supplied.
 
+## Task completion experiment
+
+`app.complete(trustedContext, { taskId })` requires `task:complete` and the task's
+owner. Other users and missing tasks receive `NOT_FOUND`. Repeated completion is
+idempotent. The memory adapter checks ownership and changes state atomically;
+future database adapters must preserve this contract with a scoped atomic write.
+
+Local verification covers 18 tests, including permission denial, ownership,
+malformed input, repeated completion, and concurrent calls to the memory adapter.
+The shared authorization helper avoids duplicating permission checks.
+Import checks protect dependency direction; behavior tests protect the demonstrated
+security rules. There is still no static guarantee that every future entry point
+uses authorization, and no compiler check for the documented repository port.
+This change was made with existing conversation context, so it is not a blind test
+of a fresh agent discovering the kit from a short prompt.
+
 ## Next experiment
 
-Give a coding agent this short task: “Add task completion following the reference.”
+Give a fresh coding agent this short task: “Add task reopening following the reference.”
 Review whether it discovers the pattern, preserves boundaries, adds meaningful tests,
 and passes verify. This is an experiment to run, not an already demonstrated result.

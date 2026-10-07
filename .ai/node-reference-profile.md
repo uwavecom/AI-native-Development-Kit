@@ -24,6 +24,9 @@ Production integrations must establish trusted identity before calling the bound
 The demo identity is a test fixture, not an authentication implementation.
 All protected entry points check permissions. The create-task input accepts only a
 title; owner identity comes from trusted context. Stored task records are copies.
+Completion requires `task:complete`, accepts only `taskId`, and is idempotent.
+The repository's `completeOwned` operation must atomically check owner scope and
+complete the task. Missing tasks and tasks owned by others both return `NOT_FOUND`.
 
 The import guard checks static imports and re-exports through Node's module linker.
 Dynamic imports and CommonJS require are prohibited in this reference profile.
