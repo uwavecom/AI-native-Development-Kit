@@ -33,6 +33,7 @@ export const tradingViewTools = [
     sideEffects: 'Creates persistent provider-side user state.',
     retryPolicy: 'On unknown execution state, list watchlists before retrying.',
     verificationStrategy: 'Fetch or list watchlists and confirm the created resource.',
+    recoveryStrategy: 'Inspect provider state; if partial or conflicting, require human intervention.',
   },
   {
     name: 'create_alert',
@@ -46,6 +47,7 @@ export const tradingViewTools = [
     sideEffects: 'Creates a persistent provider-side notification rule.',
     retryPolicy: 'On unknown execution state, inspect alerts before retrying.',
     verificationStrategy: 'Fetch/list alerts and confirm exact symbol, condition, and threshold.',
+    recoveryStrategy: 'Inspect alerts before retry; remove duplicate only through a separately authorized recovery action.',
   },
   {
     name: 'delete_alert',
@@ -59,5 +61,6 @@ export const tradingViewTools = [
     sideEffects: 'Removes persistent provider-side user state.',
     retryPolicy: 'Never blindly retry after timeout; verify current alert state first.',
     verificationStrategy: 'Confirm target alert is absent after deletion.',
+    recoveryStrategy: 'If deletion state is unknown, inspect first; never recreate automatically without a new authorized action.',
   },
 ];
