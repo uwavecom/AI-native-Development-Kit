@@ -69,7 +69,7 @@ export async function executeAction({
     };
   }
 
-  await audit({ event: 'execution_succeeded', tool: tool.name });
+  await audit({ event: 'execution_succeeded', ...auditContext });
 
   if (typeof verify !== 'function') {
     if (tool.access === 'read') {
@@ -97,7 +97,7 @@ export async function executeAction({
     const verification = await verify({ input, providerResult });
 
     if (verification?.verified === true) {
-      await audit({ event: 'verification_succeeded', tool: tool.name });
+      await audit({ event: 'verification_succeeded', ...auditContext });
       return {
         status: ExecutionStatus.SUCCEEDED,
         decision,
