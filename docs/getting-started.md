@@ -1,8 +1,8 @@
 # Getting started
 
-This repository is currently a **reference release**, not a published npm package.
+This repository is currently an **Apache-2.0 licensed reference release**, not yet a published npm package.
 
-Until an open-source license and package publication are selected, use it by cloning the repository.
+Until npm publication, use it by cloning the repository.
 
 ## 1. Clone and verify
 
@@ -104,6 +104,8 @@ const result = await guard.execute({
 ```
 
 ## 6. Use an integration adapter
+
+The repository CI validates adapter compatibility against pinned real SDK packages rather than only local mocks.
 
 For OpenAI Agents SDK, see [openai-agents.md](./openai-agents.md).
 
