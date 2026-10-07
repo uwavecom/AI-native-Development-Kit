@@ -1,6 +1,6 @@
 # AI-native Development Kit
 
-A small, agent-independent development foundation. Version 0.1 demonstrates
+A small, agent-independent development foundation. Version 0.2 demonstrates
 enforceable import boundaries and tested application behavior without vendor SDKs.
 
 ## Run
@@ -44,3 +44,9 @@ The first live integration stress-test is `examples/tradingview-mcp/`, with `exa
 Give a coding agent this short task: “Add task completion following the reference.”
 Review whether it discovers the pattern, preserves boundaries, adds meaningful tests,
 and passes verify. This is an experiment to run, not an already demonstrated result.
+
+## Runtime hardening
+
+Version 0.2 extends the safe-action lifecycle with durable reference state, keyed concurrency control, execution budgets, capability discovery, and multi-step workflow semantics. See `.ai/runtime-hardening.md` and `.ai/decisions/0002-runtime-hardening-v0.2.md`.
+
+The reference file store and keyed lock demonstrate semantics only; production distributed deployments must provide appropriate durable/distributed adapters.
