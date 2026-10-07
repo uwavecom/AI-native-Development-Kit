@@ -79,6 +79,6 @@ const registered = server.registerTool(
   }
 );
 
-assert.equal(registered.name, 'delete_resource');
 assert.equal(registered.enabled, true);
+assert.equal(typeof registered.handler, 'function');
 console.log('MCP TypeScript SDK v2 integration: PASS');
