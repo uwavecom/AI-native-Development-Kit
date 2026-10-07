@@ -103,6 +103,7 @@ test('audit captures decision and execution lifecycle', async () => {
 
   assert.deepEqual(events, [
     'policy_decided',
+    'approval_satisfied',
     'execution_started',
     'execution_succeeded',
     'verification_succeeded',
