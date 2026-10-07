@@ -18,8 +18,8 @@ OpenAI agent proposes tool call
 → audit/recovery semantics apply
 ```
 
-Use `createOpenAIAgentsToolAdapter()` and pass its callbacks into an `@openai/agents` function tool.
+Use `createOpenAIAgentsToolAdapter()` and pass its callbacks into an `@openai/agents` function tool. The adapter follows the current SDK callback shape: `needsApproval(runContext, input, callId?)` and `execute(args, context, details)`.
 
 The `getApprovalCredential` callback must exchange a trusted application-side approval decision for a credential. Do not construct credentials from model-controlled data or an untrusted serialized run snapshot.
 
-The adapter intentionally does not import `@openai/agents`, so the Development Kit remains framework-independent and dependency-free.
+The adapter intentionally does not import `@openai/agents`, so the Development Kit core remains framework-independent and dependency-free. CI separately installs the pinned SDK in `integration/real-sdk/` and validates that a real function tool can be created with the adapter.

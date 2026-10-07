@@ -160,7 +160,7 @@ test('OpenAI adapter exposes needsApproval and executes via ActionGuard', async 
     }),
   });
 
-  assert.equal(await adapter.needsApproval({}, { id: 'r1' }), true);
+  assert.equal(await adapter.needsApproval({}, { id: 'r1' }, 'call-1'), true);
   const result = await adapter.execute(
     { id: 'r1' },
     { actor: { permissions: ['resource:delete'] } }

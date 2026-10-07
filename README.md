@@ -33,7 +33,7 @@ It does **not** try to replace Temporal, Restate, Dapr, LangGraph, OpenAI Agents
 
 ## 10-minute quick start
 
-**Current distribution status:** this is a reference release in the repository, not yet a published npm package. The package remains private until an open-source license is selected.
+**Current distribution status:** the project is licensed under Apache-2.0 and the package metadata is publication-ready, but no npm package has been published yet. Until publication, use the repository directly.
 
 Requires Node.js 22+.
 
@@ -152,7 +152,7 @@ Use mature systems for those problems. This project focuses on the semantic cont
 npm run verify
 ```
 
-Verification checks syntax, architectural boundaries, tool-contract guardrails, behavior, runtime hardening, production profiles, and public API/adapters.
+Verification checks syntax, architectural boundaries, tool-contract guardrails, behavior, runtime hardening, production profiles, public API/adapters, and package exports. GitHub CI additionally installs pinned real OpenAI Agents SDK and MCP TypeScript SDK v2 dependencies and runs integration smoke tests.
 
 ## Before production use
 
@@ -174,6 +174,6 @@ Reference domains include GitHub and TradingView. The Cloudflare profile demonst
 
 ## Project status
 
-v0.3 is an early reference release focused on real developer usability.
+v0.3 is an early OSS-ready reference release focused on real developer usability.
 
-The next validation target is not more abstractions. It is whether an external developer can protect a real tool call with this kit without needing help from the authors.
+The code is Apache-2.0 licensed. The remaining distribution gates are making the repository publicly visible and, if useful, publishing the package to npm. Real SDK smoke tests cover OpenAI Agents SDK and MCP TypeScript SDK v2 in CI.

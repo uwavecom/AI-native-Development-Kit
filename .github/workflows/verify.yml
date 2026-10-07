@@ -11,3 +11,9 @@ jobs:
         with:
           node-version: 22
       - run: npm run verify
+      - name: Install real SDK integration dependencies
+        working-directory: integration/real-sdk
+        run: npm install --no-audit --no-fund
+      - name: Verify OpenAI Agents and MCP SDK integrations
+        working-directory: integration/real-sdk
+        run: npm test
