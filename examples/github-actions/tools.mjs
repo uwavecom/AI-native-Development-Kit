@@ -22,6 +22,7 @@ export const githubTools = [
     sideEffects: 'Creates persistent repository state.',
     retryPolicy: 'Check whether branch exists before retrying.',
     verificationStrategy: 'Fetch/list branch and confirm starting SHA.',
+    recoveryStrategy: 'Inspect branch existence; delete only through a separately authorized rollback action.',
   },
   {
     name: 'update_file',
@@ -35,6 +36,7 @@ export const githubTools = [
     sideEffects: 'Creates a commit and changes repository content.',
     retryPolicy: 'Do not retry blindly on unknown state; inspect file/commit first.',
     verificationStrategy: 'Fetch file and confirm expected blob/commit state.',
+    recoveryStrategy: 'Inspect file/commit state; revert only through a separately authorized rollback action.',
   },
   {
     name: 'create_pull_request',
@@ -48,6 +50,7 @@ export const githubTools = [
     sideEffects: 'Creates externally visible repository workflow state.',
     retryPolicy: 'Search for equivalent open PR before retrying.',
     verificationStrategy: 'Fetch PR and confirm head/base/title.',
+    recoveryStrategy: 'Inspect for an equivalent PR; close only through a separately authorized recovery action.',
   },
   {
     name: 'merge_pull_request',
@@ -61,5 +64,6 @@ export const githubTools = [
     sideEffects: 'Changes canonical repository history and target branch state.',
     retryPolicy: 'Never retry blindly; inspect PR merged state first.',
     verificationStrategy: 'Fetch PR and target branch; confirm merged commit.',
+    recoveryStrategy: 'Merged history is not automatically rolled back; require an explicit compensating/revert action.',
   },
 ];
