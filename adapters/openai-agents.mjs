@@ -33,7 +33,7 @@ export function createOpenAIAgentsToolAdapter({
         tool.riskLevel === 'critical';
     },
 
-    execute: async (args, runContext) => {
+    execute: async (args, runContext, details) => {
       const proposal = guard.propose({
         toolName,
         target: targetFromArgs(args),
@@ -46,19 +46,19 @@ export function createOpenAIAgentsToolAdapter({
       // that trusted application-side decision for a verifiable credential.
       // Do not mint credentials from model-controlled state.
       const approvalCredential = getApprovalCredential
-        ? await getApprovalCredential({ proposal, runContext, args })
+        ? await getApprovalCredential({ proposal, runContext, args, details })
         : null;
 
       const result = await guard.execute({
         actor: runContext?.context?.actor ?? runContext?.actor ?? {},
         proposal,
         approvalCredential,
-        invoke: () => execute(args, runContext),
+        invoke: () => execute(args, runContext, details),
         verify: verify
-          ? ({ providerResult }) => verify({ args, providerResult, runContext, proposal })
+          ? ({ providerResult }) => verify({ args, providerResult, runContext, details, proposal })
           : undefined,
         inspectState: inspectState
-          ? () => inspectState({ args, runContext, proposal })
+          ? () => inspectState({ args, runContext, details, proposal })
           : undefined,
       });
 
