@@ -24,6 +24,36 @@ export function createSignedApprovalAuthority({
     throw new Error('APPROVAL_AUTHORITY_SECRET_TOO_SHORT');
   }
 
+  const consumed = new Set();
+
+  async function verifyCredential(credential, proposal) {
+    if (!credential?.receipt || !credential?.proof || !proposal?.actionSignature) {
+      return { valid: false, reason: 'MALFORMED_APPROVAL_CREDENTIAL' };
+    }
+
+    const receipt = credential.receipt;
+    if (receipt.issuer !== issuer) return { valid: false, reason: 'UNTRUSTED_APPROVAL_ISSUER' };
+    if (receipt.actionSignature !== proposal.actionSignature) {
+      return { valid: false, reason: 'APPROVAL_PROPOSAL_MISMATCH' };
+    }
+
+    const expected = Buffer.from(sign(secret, receipt), 'hex');
+    const actual = Buffer.from(String(credential.proof), 'hex');
+    if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) {
+      return { valid: false, reason: 'INVALID_APPROVAL_PROOF' };
+    }
+
+    if (receipt.expiresAt && Date.now() >= new Date(receipt.expiresAt).getTime()) {
+      return { valid: false, reason: 'APPROVAL_EXPIRED' };
+    }
+
+    if (receipt.oneShot === true && consumed.has(credential.proof)) {
+      return { valid: false, reason: 'APPROVAL_ALREADY_CONSUMED' };
+    }
+
+    return { valid: true, receipt };
+  }
+
   return Object.freeze({
     issuer,
 
@@ -54,28 +84,13 @@ export function createSignedApprovalAuthority({
       });
     },
 
-    async verify(credential, proposal) {
-      if (!credential?.receipt || !credential?.proof || !proposal?.actionSignature) {
-        return { valid: false, reason: 'MALFORMED_APPROVAL_CREDENTIAL' };
-      }
+    verify: verifyCredential,
 
-      const receipt = credential.receipt;
-      if (receipt.issuer !== issuer) return { valid: false, reason: 'UNTRUSTED_APPROVAL_ISSUER' };
-      if (receipt.actionSignature !== proposal.actionSignature) {
-        return { valid: false, reason: 'APPROVAL_PROPOSAL_MISMATCH' };
-      }
-
-      const expected = Buffer.from(sign(secret, receipt), 'hex');
-      const actual = Buffer.from(String(credential.proof), 'hex');
-      if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) {
-        return { valid: false, reason: 'INVALID_APPROVAL_PROOF' };
-      }
-
-      if (receipt.expiresAt && Date.now() >= new Date(receipt.expiresAt).getTime()) {
-        return { valid: false, reason: 'APPROVAL_EXPIRED' };
-      }
-
-      return { valid: true, receipt };
+    async claim(credential, proposal) {
+      const verified = await verifyCredential(credential, proposal);
+      if (!verified.valid) return verified;
+      if (verified.receipt.oneShot === true) consumed.add(credential.proof);
+      return verified;
     },
   });
 }
