@@ -16,4 +16,5 @@ function files(directory) {
 }
 for (const file of ['examples', 'guardrails', 'scripts', 'test'].flatMap(files)) run(`syntax:${file}`, ['--check', file]);
 run('architecture', ['--experimental-vm-modules', 'guardrails/architecture.mjs']);
+run('tool-contract', ['guardrails/tool-contract.mjs']);
 run('behavior-and-guardrails', ['--experimental-vm-modules', '--test']);
