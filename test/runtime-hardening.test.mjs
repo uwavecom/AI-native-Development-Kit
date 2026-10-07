@@ -35,10 +35,13 @@ test('keyed lock serializes actions targeting the same key', async () => {
   const lock = new KeyedLock();
   const order = [];
   let releaseFirst;
+  let markStarted;
   const gate = new Promise(resolve => { releaseFirst = resolve; });
+  const started = new Promise(resolve => { markStarted = resolve; });
 
   const first = lock.run('same', async () => {
     order.push('first:start');
+    markStarted();
     await gate;
     order.push('first:end');
   });
@@ -47,7 +50,7 @@ test('keyed lock serializes actions targeting the same key', async () => {
     order.push('second:end');
   });
 
-  await Promise.resolve();
+  await started;
   assert.deepEqual(order, ['first:start']);
   releaseFirst();
   await Promise.all([first, second]);
