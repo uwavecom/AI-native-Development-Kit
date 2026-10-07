@@ -1,0 +1,14 @@
+{
+  "name": "ai-native-development-kit",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "verify": "node scripts/verify.mjs",
+    "test": "node --experimental-vm-modules --test",
+    "check:architecture": "node --experimental-vm-modules guardrails/architecture.mjs"
+  }
+}
