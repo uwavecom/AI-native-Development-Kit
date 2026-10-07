@@ -1,7 +1,7 @@
 {
   "name": "ai-native-development-kit",
-  "version": "0.2.0",
-  "private": true,
+  "version": "0.3.0",
+  "private": false,
   "type": "module",
   "engines": {
     "node": ">=22"
@@ -11,5 +11,17 @@
     "test": "node --experimental-vm-modules --test",
     "check:architecture": "node --experimental-vm-modules guardrails/architecture.mjs",
     "check:tools": "node guardrails/tool-contract.mjs"
-  }
+  },
+  "exports": {
+    ".": "./runtime/index.mjs",
+    "./openai-agents": "./adapters/openai-agents.mjs",
+    "./mcp": "./adapters/mcp.mjs"
+  },
+  "files": [
+    "runtime",
+    "adapters",
+    "profiles",
+    "README.md",
+    "LICENSE"
+  ]
 }
