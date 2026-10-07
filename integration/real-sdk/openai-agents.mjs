@@ -55,7 +55,7 @@ const protectedTool = tool({
 });
 
 assert.equal(protectedTool.name, 'delete_resource');
-assert.equal(await protectedTool.needsApproval({ id: 'resource-1' }), true);
+assert.equal(await protectedTool.needsApproval({}, { id: 'resource-1' }, 'call-1'), true);
 
 const result = await adapter.execute(
   { id: 'resource-1' },
