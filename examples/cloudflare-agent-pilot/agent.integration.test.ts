@@ -2,6 +2,8 @@ import { env, runInDurableObject } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { createSignedApprovalAuthority } from '../../runtime/index.mjs';
 import type { TaskAgent } from './agent';
+import { createGuardedTaskService } from './guarded-task.mjs';
+import { createDurableApprovalAuthority } from './durable-approval-authority.mjs';
 
 describe('real Workers runtime / Durable Object agent pilot', () => {
   it('routes HTTP requests to the official SDK Agent', async () => {
@@ -65,5 +67,54 @@ describe('real Workers runtime / Durable Object agent pilot', () => {
       })).rejects.toThrow('APPROVAL_PROPOSAL_MISMATCH');
       expect(agent.sql<{ total: number }>`SELECT COUNT(*) AS total FROM pilot_tasks WHERE id = ${'changed'}`[0]?.total).toBe(0);
     });
+  });
+  it('does not repeat a write if execution is interrupted after the side effect', async () => {
+    const stub = env.TaskAgent.get(env.TaskAgent.idFromName('crash-after-write'));
+    const signer = () => createSignedApprovalAuthority({ secret: 'non-production-test-secret-123456' });
+    let credential: Awaited<ReturnType<ReturnType<typeof signer>['issue']>>;
+    let observedStatus: string;
+    await runInDurableObject(stub, async (agent: TaskAgent) => {
+      agent.sql`CREATE TABLE IF NOT EXISTS pilot_tasks (id TEXT PRIMARY KEY, title TEXT NOT NULL)`;
+      const authority = createDurableApprovalAuthority({
+        sql: (strings: TemplateStringsArray, ...values: (string | number | boolean | null)[]) =>
+          agent.sql(strings, ...values),
+        signer: signer(),
+      });
+      // Fault injection: the SQLite write commits, then the provider throws
+      // before returning an acknowledgement to the guarded runtime.
+      const service = createGuardedTaskService({
+        approvalAuthority: authority,
+        store: {
+          create: async (id: string, title: string) => {
+            agent.sql`INSERT INTO pilot_tasks (id, title) VALUES (${id}, ${title})`;
+            throw new Error('SIMULATED_LOST_ACK');
+          },
+          get: async (id: string) =>
+            agent.sql<{ title: string }>`SELECT title FROM pilot_tasks WHERE id = ${id}`[0] ?? null,
+        },
+      });
+      const proposal = service.propose('crash-1', 'One task only');
+      credential = await signer().issue(proposal, { approverId: 'test-owner' });
+      const result = await service.execute({
+        proposal, credential, actor: { id: 'agent-1', permissions: ['task:create'] },
+      });
+      observedStatus = result.execution.status;
+      expect(result.execution.status).not.toBe('SUCCEEDED');
+      expect(agent.sql<{ total: number }>`SELECT COUNT(*) AS total FROM pilot_tasks WHERE id = ${'crash-1'}`[0]?.total).toBe(1);
+    });
+    // A separate interaction with a fresh signer must not invoke the write.
+    await runInDurableObject(stub, async (agent: TaskAgent) => {
+      const retry = await agent.executeTrustedTask({
+        id: 'crash-1', title: 'One task only',
+        actor: { id: 'agent-1', permissions: ['task:create'] },
+        approvalCredential: credential, approvalAuthority: signer(),
+      });
+      expect(retry.execution.executed).toBe(false);
+      expect(retry.execution.error).toBe('APPROVAL_ALREADY_CONSUMED');
+      expect(agent.sql<{ total: number }>`SELECT COUNT(*) AS total FROM pilot_tasks WHERE id = ${'crash-1'}`[0]?.total).toBe(1);
+      // Explicit state inspection can establish that the original write exists.
+      expect(agent.sql<{ title: string }>`SELECT title FROM pilot_tasks WHERE id = ${'crash-1'}`[0]?.title).toBe('One task only');
+    });
+    expect(observedStatus).not.toBe('SUCCEEDED');
   });
 });
