@@ -18,9 +18,11 @@ From repository root:
 ```sh
 node --test test/cloudflare-agent-pilot.test.mjs
 npm run verify
+# In examples/cloudflare-agent-pilot after installing agents, vitest, wrangler and @cloudflare/vitest-plugin:
+npx vitest run --config vitest.config.mts
 ```
 
-A separate CI job installs the official `agents` SDK and runs `tsc` against the adapter.
+A separate CI job installs the official `agents` SDK, runs `tsc`, and executes the integration specs in the Cloudflare Workers runtime with Vitest. The integration tests exercise HTTP handling, SQLite persistence across independent Durable Object interactions, and one-shot approval rejection. They do not prove persistence across a complete process restart or distributed approval authority correctness.
 
 No production deployment, Wrangler configuration, AI model, or Cloudflare credentials are included.
 
