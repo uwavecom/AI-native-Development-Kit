@@ -80,3 +80,32 @@ A single `PilotApprovalCoordinator` Durable Object now owns global credential pr
 ## Capability separation and concurrency check (2026-10-08)
 
 The coordinator now uses separate test-only tokens for claims and revocation. These tokens intentionally demonstrate two distinct privileges and do not implement end-user authentication, principal-scoped policies, or issuance workflows. Workers integration tests concurrently claim the same proof and race a claim against revocation. Exactly one of claim/revoke can win for an unclaimed proof. **This remains a prototype:** the single global coordinator can become a scalability bottleneck; no full process restart, abuse rate limit, credential issuance governance or provider-integrated idempotency tests have been completed. Promotion to production remains blocked.
+
+## Publication gate (2026-10-08)
+
+**Disposition: NO MERGE into the recommended public reference yet. No
+deployment.** A successful CI run verifies this example's current tests;
+it does not substitute for a production security assessment.
+
+- **Done:** one concrete GitHub Issues adapter, strict allowed repository,
+  bound signed proposal, guarded execution, post-write verification, mocked
+  loss-of-acknowledgement tests, and wiring into trusted Agent RPC.
+- **Done:** centralized proof claim/revocation coordinator, separate
+  demonstration claim/revocation tokens, named-agent scope checks, and
+  concurrency tests within local Workers runtime.
+- **Done:** `QUICKSTART.md` explains clean-checkout verification and secret
+  boundaries, and `README.md` has been aligned with the code.
+- **Blocking — deterministic supply chain:** Cloudflare CI still installs
+  unpinned moving dependencies without a lockfile. Add and validate a
+  committed lockfile and supported version matrix before declaring this
+  a reproducible release example.
+- **Blocking — security identity:** shared bearer credentials are not
+  principal-scoped authorization or an audited human approval workflow.
+- **Blocking — live provider semantics:** no end-to-end GitHub App installation
+  token lifecycle, fully authenticated issuance, or provider-specific
+  recovery protocol has been verified.
+- **Blocking — lifecycle:** no worker process restart or real crash recovery
+  testing of a live external operation has been completed.
+
+It is suitable for local evaluation in isolation, not for trusted external
+writes. The existing PR should remain open until these gates are addressed.
