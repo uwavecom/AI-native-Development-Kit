@@ -2,9 +2,23 @@ export class CapabilityRegistry {
   #providers = new Map();
 
   register(provider, descriptor) {
-    if (!provider) throw new Error('PROVIDER_REQUIRED');
+    if (typeof provider !== 'string' || !provider.trim()) throw new Error('PROVIDER_REQUIRED');
+    if (this.#providers.has(provider)) throw new Error('PROVIDER_ALREADY_REGISTERED');
     if (!descriptor || !Array.isArray(descriptor.tools)) throw new Error('INVALID_CAPABILITY_DESCRIPTOR');
-    this.#providers.set(provider, structuredClone(descriptor));
+
+    const seen = new Set();
+    for (const tool of descriptor.tools) {
+      if (!tool || typeof tool !== 'object' || Array.isArray(tool) ||
+          typeof tool.name !== 'string' || !tool.name.trim()) {
+        throw new Error('INVALID_CAPABILITY_TOOL');
+      }
+      if (seen.has(tool.name)) throw new Error('DUPLICATE_CAPABILITY_TOOL');
+      seen.add(tool.name);
+    }
+
+    // Clone before modifying the registry. Uncloneable descriptors must leave it unchanged.
+    const snapshot = structuredClone(descriptor);
+    this.#providers.set(provider, snapshot);
   }
 
   get(provider) {
