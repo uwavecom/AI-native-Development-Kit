@@ -57,3 +57,14 @@ test('invalid target never calls store', async () => {
   assert.throws(() => service.propose('', 'Test'), { message: 'INVALID_TASK' });
   assert.equal(calls.length, 0);
 });
+
+test('forged proposal signature cannot authorize changed parameters or reconciliation', async () => {
+  const { service, authority, calls } = setup();
+  const approved = service.propose('forged', 'Original');
+  const credential = await authority.issue(approved, { approverId: 'owner' });
+  const forged = { ...approved, params: { id: 'forged', title: 'Changed' } };
+  await assert.rejects(service.execute({ proposal: forged, credential, actor }),
+    { message: 'PROPOSAL_SIGNATURE_MISMATCH' });
+  await assert.rejects(service.reconcile(forged), { message: 'PROPOSAL_SIGNATURE_MISMATCH' });
+  assert.equal(calls.length, 0);
+});
