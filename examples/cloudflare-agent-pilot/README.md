@@ -56,3 +56,21 @@ The Workers integration suite also simulates a committed SQLite write followed b
 ## Centralized approval coordinator (pilot)
 
 All named agents route one-shot claims to a single named `PilotApprovalCoordinator` Durable Object. A trusted coordinator RPC can mark a credential proof as `REVOKED` before it is claimed. A rejected or already-claimed proof cannot execute a new operation. The coordinator accepts only a test service token, not per-user identities; it does **not** provide production issuer authentication, role management, key rotation or end-to-end audit. Revocation after a claim does **not** reverse work already started, and revocation/claim races are ordered by coordinator storage, not by a human-facing approval UI. Never reuse the test token or secrets in production.
+
+## Real provider example: GitHub Issues (mocked CI)
+
+The standalone `github-issue.mjs` adapter demonstrates one real external REST
+operation. It uses the official GitHub Issues endpoint, a repository allowlist,
+a signed high-risk action proposal, one-shot approval claim, and read-after-write
+verification via GET. Run `node --test test/cloudflare-github-issue.test.mjs`
+from the repository root. All automated tests replace `fetch` with a mock:
+**they do not create any real GitHub issue or use any live token**.
+
+The adapter intentionally is not exposed as an unauthenticated Worker HTTP route
+and is **not yet wired to the TaskAgent production RPC**. That would require a
+protected per-repository GitHub App installation token, correctly scoped
+caller identity, durable central approval claims, secure secret bindings, and a
+complete review of external API fault behavior. GitHub Issues creation is not
+guaranteed idempotent: after a lost POST acknowledgement, never blindly retry;
+use provider-specific reconciliation with human review. An `operationId` binds
+approval intent only, and GitHub does not automatically deduplicate on that ID.
