@@ -23,7 +23,7 @@ describe('real Workers runtime / Durable Object agent pilot', () => {
         approvalAuthority: signer(),
         store: { create: async () => ({}), get: async () => null },
       });
-      const proposal = service.propose('persisted-2', 'Durable task');
+      const proposal = service.propose('persisted-2', 'Durable task', { agentId: 'durable-claims-and-tasks' });
       credential = await signer().issue(proposal, { approverId: 'test-owner' });
       const result = await agent.executeTrustedTask({
         id: 'persisted-2', title: 'Durable task',
@@ -55,7 +55,7 @@ describe('real Workers runtime / Durable Object agent pilot', () => {
       approvalAuthority: authority,
       store: { create: async () => ({}), get: async () => null },
     });
-    const credential = await authority.issue(probe.propose('changed', 'Original'), { approverId: 'owner' });
+    const credential = await authority.issue(probe.propose('changed', 'Original', { agentId: 'tamper-boundary' }), { approverId: 'owner' });
     await runInDurableObject(stub, async (agent: TaskAgent) => {
       await expect(agent.executeTrustedTask({
         id: 'changed', title: 'Modified',
@@ -89,7 +89,7 @@ describe('real Workers runtime / Durable Object agent pilot', () => {
             agent.sql<{ title: string }>`SELECT title FROM pilot_tasks WHERE id = ${id}`[0] ?? null,
         },
       });
-      const proposal = service.propose('crash-1', 'One task only');
+      const proposal = service.propose('crash-1', 'One task only', { agentId: 'crash-after-write' });
       credential = await signer().issue(proposal, { approverId: 'test-owner' });
       const result = await service.execute({
         proposal, credential, actor: { id: 'agent-1', permissions: ['task:create'] },
@@ -145,6 +145,25 @@ describe('real Workers runtime / Durable Object agent pilot', () => {
         id: 'forbidden', title: 'Must not persist',
         approvalCredential: null, callerToken: 'untrusted-client-token',
       })).rejects.toThrow('UNAUTHORIZED_RPC');
+    });
+  });
+  it('refuses to execute an approval granted to a different named agent', async () => {
+    const signer = createSignedApprovalAuthority({ secret: 'integration-test-only-signing-secret-2026' });
+    const probe = createGuardedTaskService({
+      approvalAuthority: signer,
+      store: { create: async () => ({}), get: async () => null },
+    });
+    const proposal = probe.propose('cross-agent', 'Private task', { agentId: 'agent-alpha' });
+    const credential = await signer.issue(proposal, { approverId: 'test-owner' });
+    const stub = env.TaskAgent.get(env.TaskAgent.idFromName('agent-beta'));
+    await runInDurableObject(stub, async (agent: TaskAgent) => {
+      await expect(agent.executeTrustedTask({
+        id: 'cross-agent', title: 'Private task',
+        approvalCredential: credential,
+        callerToken: 'integration-test-only-caller-token-2026',
+      })).rejects.toThrow('APPROVAL_PROPOSAL_MISMATCH');
+      const rows = agent.sql<{ total: number }>`SELECT COUNT(*) AS total FROM pilot_tasks WHERE id = ${'cross-agent'}`;
+      expect(rows[0]?.total).toBe(0);
     });
   });
 });
