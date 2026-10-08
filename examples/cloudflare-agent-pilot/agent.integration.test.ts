@@ -166,4 +166,28 @@ describe('real Workers runtime / Durable Object agent pilot', () => {
       expect(rows[0]?.total).toBe(0);
     });
   });
+  it('central coordinator revokes an unclaimed approval across named agents', async () => {
+    const signer = createSignedApprovalAuthority({ secret: 'integration-test-only-signing-secret-2026' });
+    const probe = createGuardedTaskService({
+      approvalAuthority: signer,
+      store: { create: async () => ({}), get: async () => null },
+    });
+    const proposal = probe.propose('revoke-demo', 'Blocked task', { agentId: 'agent-revoked' });
+    const credential = await signer.issue(proposal, { approverId: 'owner' });
+    const coordinator = env.ApprovalCoordinator.getByName('pilot-global');
+    const revoked = await coordinator.revoke(credential.proof, 'integration-test-only-caller-token-2026');
+    expect(revoked.revoked).toBe(true);
+    const agent = env.TaskAgent.get(env.TaskAgent.idFromName('agent-revoked'));
+    await runInDurableObject(agent, async (instance: TaskAgent) => {
+      const result = await instance.executeTrustedTask({
+        id: 'revoke-demo', title: 'Blocked task',
+        approvalCredential: credential, callerToken: 'integration-test-only-caller-token-2026',
+      });
+      expect(result.execution.executed).toBe(false);
+      expect(result.execution.error).toBe('APPROVAL_REVOKED');
+      expect(instance.sql<{ total: number }>`SELECT COUNT(*) AS total FROM pilot_tasks`[0]?.total).toBe(0);
+    });
+    await expect(coordinator.revoke('a'.repeat(64), 'wrong-token'))
+      .rejects.toThrow('UNAUTHORIZED_COORDINATOR');
+  });
 });
