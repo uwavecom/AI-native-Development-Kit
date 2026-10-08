@@ -6,14 +6,14 @@ import type { TaskAgent } from './agent';
 
 describe('real Workers runtime / Durable Object agent pilot', () => {
   it('routes HTTP requests to the official SDK Agent', async () => {
-    const id = env.TaskAgent.newUniqueId();
+    const id = env.TaskAgent.idFromName('http-route-smoke');
     const response = await env.TaskAgent.get(id).fetch('https://example.com/');
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ service: 'cloudflare-agent-pilot', status: 'ready' });
   });
 
   it('persists a guarded approved task inside the Durable Object SQLite database', async () => {
-    const stub = env.TaskAgent.get(env.TaskAgent.newUniqueId());
+    const stub = env.TaskAgent.get(env.TaskAgent.idFromName('guarded-sqlite-persistence'));
     await runInDurableObject(stub, async (agent: TaskAgent) => {
       agent.sql`CREATE TABLE IF NOT EXISTS pilot_tasks (id TEXT PRIMARY KEY, title TEXT NOT NULL)`;
       const store = {
