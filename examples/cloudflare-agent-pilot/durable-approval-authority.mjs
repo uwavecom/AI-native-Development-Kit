@@ -4,7 +4,7 @@
  * The SQLite UNIQUE constraint is the final arbiter of replay protection.
  * All calls for a given approval scope MUST route to the same named object.
  */
-export function createDurableApprovalAuthority({ sql, signer }) {
+export function createDurableApprovalAuthority({ sql, signer, coordinator = null }) {
   if (typeof sql !== 'function' || !signer?.verify) throw new Error('DURABLE_AUTHORITY_DEPENDENCIES_REQUIRED');
   sql`CREATE TABLE IF NOT EXISTS pilot_approval_claims (
     proof TEXT PRIMARY KEY,
@@ -18,6 +18,10 @@ export function createDurableApprovalAuthority({ sql, signer }) {
       if (checked.receipt.oneShot !== true) return checked;
       if (typeof credential?.proof !== 'string' || !credential.proof) {
         return { valid: false, reason: 'MALFORMED_APPROVAL_CREDENTIAL' };
+      }
+      if (coordinator) {
+        const outcome = await coordinator.claim(credential.proof, proposal.actionSignature);
+        return outcome.valid ? checked : { valid: false, reason: outcome.reason };
       }
       // No async boundary between the write and RETURNING; SQLite arbitrates
       // duplicate claims even if the authority is recreated after a restart.
