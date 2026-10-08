@@ -33,6 +33,7 @@
   ],
   "vars": {
     "PILOT_SIGNING_SECRET": "integration-test-only-signing-secret-2026",
-    "PILOT_CALLER_TOKEN": "integration-test-only-caller-token-2026"
+    "PILOT_CALLER_TOKEN": "integration-test-only-caller-token-2026",
+    "PILOT_REVOKER_TOKEN": "integration-test-only-revoker-token-2026"
   }
 }
