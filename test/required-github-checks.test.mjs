@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import { verifyRequiredGithubChecks as verify } from '../examples/required-github-checks.mjs';
 
 const sha = 'a'.repeat(40);
-const pr = { state: 'open', base: { ref: 'main' }, head: { sha, repo: { full_name: 'org/repo' } } };
+const pr = { state: 'open', base: { ref: 'main' }, head: { sha, ref: 'pilot/demo', repo: { full_name: 'org/repo' } } };
 const check = (name, overrides = {}) => ({
   id: name === 'verify' ? 1 : 2, name, status: 'completed', conclusion: 'success',
-  app: { slug: 'github-actions' }, head_sha: sha,
+  app: { slug: 'github-actions' }, head_sha: sha, check_suite: { id: 123 },
   html_url: 'https://github.com/org/repo/actions/runs/12/job/22',
   ...overrides,
 });
@@ -16,7 +16,13 @@ const request = (runs, options = {}) => {
     ok: true,
     json: async () => url.includes('/pulls/')
       ? (++prReads === 2 && options.stale ? { ...pr, head: { ...pr.head, sha: 'b'.repeat(40) } } : pr)
-      : { total_count: runs.length, check_runs: runs },
+      : url.includes('/actions/runs?')
+        ? { total_count: 1, workflow_runs: [{
+          id: 100, event: 'pull_request', head_sha: sha,
+          head_branch: 'pilot/demo', repository: { full_name: 'org/repo' },
+          check_suite_id: 123, status: 'completed', conclusion: 'success',
+        }] }
+        : { total_count: runs.length, check_runs: runs },
   });
 };
 const call = (checks, fetchImpl) => verify({
@@ -44,4 +50,21 @@ test('PR head changes invalidate evidence', async () => {
 });
 test('empty required-check policy is rejected', async () => {
   await assert.rejects(call([], request([])), /mandatory/);
+});
+
+test('push check with the same name does not create false duplication', async () => {
+  const checks = [
+    check('verify'),
+    check('verify', { id: 99, check_suite: { id: 999 } }),
+  ];
+  const result = await call(['verify'], request(checks));
+  assert.equal(result.verified, true);
+});
+test('a failed required check in the selected PR workflow cannot be replaced by green push CI', async () => {
+  const checks = [
+    check('verify', { conclusion: 'failure' }),
+    check('verify', { id: 99, check_suite: { id: 999 } }),
+  ];
+  const result = await call(['verify'], request(checks));
+  assert.equal(result.verified, false);
 });
