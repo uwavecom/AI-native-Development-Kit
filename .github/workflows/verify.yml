@@ -31,9 +31,12 @@ jobs:
           node-version: 24
       - name: Install official Cloudflare Agents SDK for pilot validation
         working-directory: examples/cloudflare-agent-pilot
-        run: npm install --no-save --no-package-lock --ignore-scripts agents @cloudflare/workers-types typescript
+        run: npm install --no-save --no-package-lock --ignore-scripts agents @cloudflare/workers-types typescript vitest@^4.1.0 @cloudflare/vitest-plugin wrangler
       - name: Typecheck Cloudflare Agent integration
         working-directory: examples/cloudflare-agent-pilot
         run: npx tsc --project tsconfig.json
       - name: Run pilot security regression tests
         run: node --test test/cloudflare-agent-pilot.test.mjs
+      - name: Run real Workers and Durable Object integration tests
+        working-directory: examples/cloudflare-agent-pilot
+        run: npx vitest run --config vitest.config.mts
