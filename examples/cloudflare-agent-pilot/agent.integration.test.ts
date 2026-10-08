@@ -1,44 +1,66 @@
 import { env, runInDurableObject } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { createSignedApprovalAuthority } from '../../runtime/index.mjs';
-import { createGuardedTaskService } from './guarded-task.mjs';
 import type { TaskAgent } from './agent';
 
 describe('real Workers runtime / Durable Object agent pilot', () => {
   it('routes HTTP requests to the official SDK Agent', async () => {
-    const id = env.TaskAgent.idFromName('http-route-smoke');
-    const response = await env.TaskAgent.get(id).fetch('https://example.com/');
+    const response = await env.TaskAgent.get(env.TaskAgent.idFromName('http-route-smoke')).fetch('https://example.com/');
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ service: 'cloudflare-agent-pilot', status: 'ready' });
   });
 
-  it('persists a guarded approved task inside the Durable Object SQLite database', async () => {
-    const stub = env.TaskAgent.get(env.TaskAgent.idFromName('guarded-sqlite-persistence'));
+  it('persists approved tasks and blocks replay across independent agent interactions', async () => {
+    const stub = env.TaskAgent.get(env.TaskAgent.idFromName('durable-claims-and-tasks'));
+    const signer = () => createSignedApprovalAuthority({ secret: 'non-production-test-secret-123456' });
+    let credential: Awaited<ReturnType<ReturnType<typeof signer>['issue']>>;
     await runInDurableObject(stub, async (agent: TaskAgent) => {
-      agent.sql`CREATE TABLE IF NOT EXISTS pilot_tasks (id TEXT PRIMARY KEY, title TEXT NOT NULL)`;
-      const store = {
-        create: async (id: string, title: string) => {
-          agent.sql`INSERT INTO pilot_tasks (id, title) VALUES (${id}, ${title})`;
-          return { id };
-        },
-        get: async (id: string) =>
-          agent.sql<{ id: string; title: string }>`SELECT id, title FROM pilot_tasks WHERE id = ${id}`[0] ?? null,
-      };
-      const authority = createSignedApprovalAuthority({ secret: 'non-production-test-secret-123456' });
-      const service = createGuardedTaskService({ approvalAuthority: authority, store });
-      const proposal = service.propose('persisted-1', 'Durable task');
-      const credential = await authority.issue(proposal, { approverId: 'test-owner' });
-      const result = await service.execute({
-        proposal, credential, actor: { id: 'agent-1', permissions: ['task:create'] },
+      // Prepare a proposal through the same public contract as the guarded service.
+      const { createGuardedTaskService } = await import('./guarded-task.mjs');
+      const service = createGuardedTaskService({
+        approvalAuthority: signer(),
+        store: { create: async () => ({}), get: async () => null },
+      });
+      const proposal = service.propose('persisted-2', 'Durable task');
+      credential = await signer().issue(proposal, { approverId: 'test-owner' });
+      const result = await agent.executeTrustedTask({
+        id: 'persisted-2', title: 'Durable task',
+        actor: { id: 'agent-1', permissions: ['task:create'] },
+        approvalCredential: credential, approvalAuthority: signer(),
       });
       expect(result.execution.status).toBe('SUCCEEDED');
-      await expect(service.execute({
-        proposal, credential, actor: { id: 'agent-1', permissions: ['task:create'] },
-      })).rejects.toThrow('APPROVAL_ALREADY_CONSUMED');
     });
+    // A new wrapper and a freshly constructed verifier cannot reset the persisted claim.
     await runInDurableObject(stub, async (agent: TaskAgent) => {
-      const records = agent.sql<{ title: string }>`SELECT title FROM pilot_tasks WHERE id = ${'persisted-1'}`;
-      expect(records[0]?.title).toBe('Durable task');
+      const rows = agent.sql<{ title: string }>`SELECT title FROM pilot_tasks WHERE id = ${'persisted-2'}`;
+      expect(rows[0]?.title).toBe('Durable task');
+      await expect(agent.executeTrustedTask({
+        id: 'persisted-2', title: 'Durable task',
+        actor: { id: 'agent-1', permissions: ['task:create'] },
+        approvalCredential: credential, approvalAuthority: signer(),
+      })).rejects.toThrow('APPROVAL_ALREADY_CONSUMED');
+      const count = agent.sql<{ total: number }>`SELECT COUNT(*) AS total FROM pilot_tasks WHERE id = ${'persisted-2'}`;
+      expect(count[0]?.total).toBe(1);
+    });
+  });
+
+  it('cannot execute a tampered task with a valid signed approval for another title', async () => {
+    const stub = env.TaskAgent.get(env.TaskAgent.idFromName('tamper-boundary'));
+    const authority = createSignedApprovalAuthority({ secret: 'non-production-test-secret-123456' });
+    const { createGuardedTaskService } = await import('./guarded-task.mjs');
+    const probe = createGuardedTaskService({
+      approvalAuthority: authority,
+      store: { create: async () => ({}), get: async () => null },
+    });
+    const credential = await authority.issue(probe.propose('changed', 'Original'), { approverId: 'owner' });
+    await runInDurableObject(stub, async (agent: TaskAgent) => {
+      await expect(agent.executeTrustedTask({
+        id: 'changed', title: 'Modified',
+        actor: { id: 'agent-1', permissions: ['task:create'] },
+        approvalCredential: credential,
+        approvalAuthority: createSignedApprovalAuthority({ secret: 'non-production-test-secret-123456' }),
+      })).rejects.toThrow('APPROVAL_PROPOSAL_MISMATCH');
+      expect(agent.sql<{ total: number }>`SELECT COUNT(*) AS total FROM pilot_tasks WHERE id = ${'changed'}`[0]?.total).toBe(0);
     });
   });
 });
