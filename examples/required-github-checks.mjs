@@ -49,7 +49,7 @@ export async function verifyRequiredGithubChecks({
   for (const name of requiredChecks) {
     const candidates = checks.filter(c => c.name === name &&
       c.app?.slug === 'github-actions' &&
-      c.check_suite?.head_sha === sha);
+      c.head_sha === sha);
     // A duplicated check name is ambiguous and must not be silently accepted.
     if (candidates.length !== 1 ||
         candidates[0].status !== 'completed' ||
@@ -74,7 +74,7 @@ export async function verifyRequiredGithubChecks({
     requiredChecks: Object.freeze([...requiredChecks]),
     evidence: Object.freeze({
       kind: 'ci-passed',
-      reference: matched.map(name => checks.find(c => c.name === name).html_url).join(' '),
+      reference: matched.map(name => checks.find(c => c.name === name && c.head_sha === sha).html_url).join(' '),
     }),
   });
 }
