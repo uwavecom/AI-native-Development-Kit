@@ -225,4 +225,16 @@ describe('real Workers runtime / Durable Object agent pilot', () => {
     expect(Number(revoke.revoked) + Number(claim.valid)).toBe(1);
     expect(claim.valid || claim.reason === 'APPROVAL_REVOKED').toBe(true);
   });
+  it('fails closed if GitHub installation is not configured on the Worker', async () => {
+    const stub = env.TaskAgent.get(env.TaskAgent.idFromName('unconfigured-github-rpc'));
+    await runInDurableObject(stub, async (agent: TaskAgent) => {
+      await expect(agent.executeTrustedGitHubIssue({
+        repository: 'example-org/example-repo',
+        operationId: 'unconfigured-case',
+        title: 'Must not create', body: 'No GitHub token provided',
+        approvalCredential: null,
+        callerToken: 'integration-test-only-caller-token-2026',
+      })).rejects.toThrow('GITHUB_INTEGRATION_NOT_CONFIGURED');
+    });
+  });
 });
