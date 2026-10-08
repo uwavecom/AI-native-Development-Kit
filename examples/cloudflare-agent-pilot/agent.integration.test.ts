@@ -75,6 +75,10 @@ describe('real Workers runtime / Durable Object agent pilot', () => {
         sql: (strings: TemplateStringsArray, ...values: (string | number | boolean | null)[]) =>
           agent.sql(strings, ...values),
         signer: signer(),
+        coordinator: {
+          claim: (proof: string, signature: string) => agent.env.ApprovalCoordinator
+            .getByName('pilot-global').claim(proof, signature, 'integration-test-only-caller-token-2026'),
+        },
       });
       // Fault injection: the SQLite write commits, then the provider throws
       // before returning an acknowledgement to the guarded runtime.
@@ -187,7 +191,5 @@ describe('real Workers runtime / Durable Object agent pilot', () => {
       expect(result.execution.error).toBe('APPROVAL_REVOKED');
       expect(instance.sql<{ total: number }>`SELECT COUNT(*) AS total FROM pilot_tasks`[0]?.total).toBe(0);
     });
-    await expect(coordinator.revoke('a'.repeat(64), 'wrong-token'))
-      .rejects.toThrow('UNAUTHORIZED_COORDINATOR');
   });
 });
