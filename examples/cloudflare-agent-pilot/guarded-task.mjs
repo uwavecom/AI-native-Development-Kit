@@ -23,6 +23,18 @@ export function createGuardedTaskService({ approvalAuthority, store, audit = asy
     policyVersion: 'cloudflare-pilot-v1',
     toolContractVersion: 'cloudflare-pilot-tools-v1',
   });
+  function validateProposal(proposal) {
+    if (!proposal || proposal.toolName !== 'create_task') throw new Error('INVALID_PROPOSAL');
+    const { id, title } = proposal.params ?? {};
+    if (proposal.target !== id || typeof id !== 'string' || !id.trim() ||
+        typeof title !== 'string' || !title.trim()) throw new Error('INVALID_TASK');
+    // The signature is not a trusted field on an object supplied by the caller.
+    const expected = guard.propose({ toolName: 'create_task', target: id,
+      params: { id, title }, scope: proposal.scope ?? null });
+    if (expected.actionSignature !== proposal.actionSignature)
+      throw new Error('PROPOSAL_SIGNATURE_MISMATCH');
+    return { id, title };
+  }
   return {
     propose(id, title) {
       if (typeof id !== 'string' || !id.trim() || typeof title !== 'string' || !title.trim())
@@ -30,10 +42,7 @@ export function createGuardedTaskService({ approvalAuthority, store, audit = asy
       return guard.propose({ toolName: 'create_task', target: id, params: { id, title } });
     },
     async reconcile(proposal) {
-      if (!proposal || proposal.toolName !== 'create_task') throw new Error('INVALID_PROPOSAL');
-      const { id, title } = proposal.params ?? {};
-      if (proposal.target !== id || typeof id !== 'string' || !id.trim() ||
-          typeof title !== 'string' || !title.trim()) throw new Error('INVALID_TASK');
+      const { id, title } = validateProposal(proposal);
       let outcome;
       try {
         const actual = await store.get(id);
@@ -51,11 +60,7 @@ export function createGuardedTaskService({ approvalAuthority, store, audit = asy
       return { ...outcome, actionSignature: proposal.actionSignature };
     },
     async execute({ proposal, credential, actor }) {
-      if (!proposal || proposal.toolName !== 'create_task') throw new Error('INVALID_PROPOSAL');
-      // Do not execute a different set of parameters from those covered by the signature.
-      const { id, title } = proposal.params ?? {};
-      if (proposal.target !== id || typeof id !== 'string' || !id.trim() ||
-          typeof title !== 'string' || !title.trim()) throw new Error('INVALID_TASK');
+      const { id, title } = validateProposal(proposal);
       const result = await guard.execute({
         actor, proposal, approvalCredential: credential,
         invoke: async () => store.create(id, title),
