@@ -14,7 +14,7 @@ describe('real Workers runtime / Durable Object agent pilot', () => {
 
   it('persists approved tasks and blocks replay across independent agent interactions', async () => {
     const stub = env.TaskAgent.get(env.TaskAgent.idFromName('durable-claims-and-tasks'));
-    const signer = () => createSignedApprovalAuthority({ secret: 'non-production-test-secret-123456' });
+    const signer = () => createSignedApprovalAuthority({ secret: 'integration-test-only-signing-secret-2026' });
     let credential: Awaited<ReturnType<ReturnType<typeof signer>['issue']>>;
     await runInDurableObject(stub, async (agent: TaskAgent) => {
       // Prepare a proposal through the same public contract as the guarded service.
@@ -27,8 +27,7 @@ describe('real Workers runtime / Durable Object agent pilot', () => {
       credential = await signer().issue(proposal, { approverId: 'test-owner' });
       const result = await agent.executeTrustedTask({
         id: 'persisted-2', title: 'Durable task',
-        actor: { id: 'agent-1', permissions: ['task:create'] },
-        approvalCredential: credential, approvalAuthority: signer(),
+        approvalCredential: credential, callerToken: 'integration-test-only-caller-token-2026',
       });
       expect(result.execution.status).toBe('SUCCEEDED');
     });
@@ -38,8 +37,7 @@ describe('real Workers runtime / Durable Object agent pilot', () => {
       expect(rows[0]?.title).toBe('Durable task');
       const replay = await agent.executeTrustedTask({
         id: 'persisted-2', title: 'Durable task',
-        actor: { id: 'agent-1', permissions: ['task:create'] },
-        approvalCredential: credential, approvalAuthority: signer(),
+        approvalCredential: credential, callerToken: 'integration-test-only-caller-token-2026',
       });
       expect(replay.execution.status).toBe('FAILED');
       expect(replay.execution.executed).toBe(false);
@@ -51,7 +49,7 @@ describe('real Workers runtime / Durable Object agent pilot', () => {
 
   it('cannot execute a tampered task with a valid signed approval for another title', async () => {
     const stub = env.TaskAgent.get(env.TaskAgent.idFromName('tamper-boundary'));
-    const authority = createSignedApprovalAuthority({ secret: 'non-production-test-secret-123456' });
+    const authority = createSignedApprovalAuthority({ secret: 'integration-test-only-signing-secret-2026' });
     const { createGuardedTaskService } = await import('./guarded-task.mjs');
     const probe = createGuardedTaskService({
       approvalAuthority: authority,
@@ -61,16 +59,14 @@ describe('real Workers runtime / Durable Object agent pilot', () => {
     await runInDurableObject(stub, async (agent: TaskAgent) => {
       await expect(agent.executeTrustedTask({
         id: 'changed', title: 'Modified',
-        actor: { id: 'agent-1', permissions: ['task:create'] },
-        approvalCredential: credential,
-        approvalAuthority: createSignedApprovalAuthority({ secret: 'non-production-test-secret-123456' }),
+        approvalCredential: credential, callerToken: 'integration-test-only-caller-token-2026',
       })).rejects.toThrow('APPROVAL_PROPOSAL_MISMATCH');
       expect(agent.sql<{ total: number }>`SELECT COUNT(*) AS total FROM pilot_tasks WHERE id = ${'changed'}`[0]?.total).toBe(0);
     });
   });
   it('does not repeat a write if execution is interrupted after the side effect', async () => {
     const stub = env.TaskAgent.get(env.TaskAgent.idFromName('crash-after-write'));
-    const signer = () => createSignedApprovalAuthority({ secret: 'non-production-test-secret-123456' });
+    const signer = () => createSignedApprovalAuthority({ secret: 'integration-test-only-signing-secret-2026' });
     let credential: Awaited<ReturnType<ReturnType<typeof signer>['issue']>>;
     let observedStatus: string;
     await runInDurableObject(stub, async (agent: TaskAgent) => {
@@ -106,8 +102,7 @@ describe('real Workers runtime / Durable Object agent pilot', () => {
     await runInDurableObject(stub, async (agent: TaskAgent) => {
       const retry = await agent.executeTrustedTask({
         id: 'crash-1', title: 'One task only',
-        actor: { id: 'agent-1', permissions: ['task:create'] },
-        approvalCredential: credential, approvalAuthority: signer(),
+        approvalCredential: credential, callerToken: 'integration-test-only-caller-token-2026',
       });
       expect(retry.execution.executed).toBe(false);
       expect(retry.execution.error).toBe('APPROVAL_ALREADY_CONSUMED');
@@ -142,5 +137,14 @@ describe('real Workers runtime / Durable Object agent pilot', () => {
     const result = await service.reconcile(service.propose('unknown', 'Task'));
     expect(result.status).toBe('UNKNOWN');
     expect(result.resolved).toBe(false);
+  });
+  it('rejects unauthenticated RPC before modifying SQLite', async () => {
+    const stub = env.TaskAgent.get(env.TaskAgent.idFromName('rpc-identity-test'));
+    await runInDurableObject(stub, async (agent: TaskAgent) => {
+      await expect(agent.executeTrustedTask({
+        id: 'forbidden', title: 'Must not persist',
+        approvalCredential: null, callerToken: 'untrusted-client-token',
+      })).rejects.toThrow('UNAUTHORIZED_RPC');
+    });
   });
 });
