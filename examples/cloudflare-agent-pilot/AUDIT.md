@@ -72,3 +72,7 @@ full distributed coordination or revocation: there is still a shared demo
 service token and separate per-object SQLite claim records. A centrally
 coordinated revocation mechanism and server-authenticated per-principal access
 must be designed before production use.
+
+## Shared coordinator prototype (2026-10-08)
+
+A single `PilotApprovalCoordinator` Durable Object now owns global credential proof claims and pre-claim revocations across all named agents in this pilot. Its SQLite unique key decides claim vs revoke. Tests cover a revoked-but-unclaimed approval rejected by the target agent. **Still blocked for production:** authenticated per-principal administration and revocation, hardened separation of caller/revoker authority, a safe approval issuance UI, external provider idempotency, and a complete restart/concurrency evaluation. The test bearer token alone is not acceptable governance.
