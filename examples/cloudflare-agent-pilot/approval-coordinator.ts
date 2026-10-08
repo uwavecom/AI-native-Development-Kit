@@ -36,7 +36,8 @@ export class PilotApprovalCoordinator extends DurableObject<Env> {
   }
 
   async revoke(proof: string, token: string) {
-    this.authenticate(token);
+    if (!this.env.PILOT_REVOKER_TOKEN || this.env.PILOT_REVOKER_TOKEN.length < 16 ||
+        token !== this.env.PILOT_REVOKER_TOKEN) throw new Error('UNAUTHORIZED_REVOKER');
     if (!/^[a-f0-9]{64}$/.test(proof)) throw new Error('INVALID_PROOF');
     // Revocation only applies to credentials not already claimed.
     const changed = this.ctx.storage.sql.exec(
