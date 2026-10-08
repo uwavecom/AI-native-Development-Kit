@@ -36,10 +36,10 @@ export function createGuardedTaskService({ approvalAuthority, store, audit = asy
     return { id, title };
   }
   return {
-    propose(id, title) {
+    propose(id, title, scope = null) {
       if (typeof id !== 'string' || !id.trim() || typeof title !== 'string' || !title.trim())
         throw new Error('INVALID_TASK');
-      return guard.propose({ toolName: 'create_task', target: id, params: { id, title } });
+      return guard.propose({ toolName: 'create_task', target: id, params: { id, title }, scope });
     },
     async reconcile(proposal) {
       const { id, title } = validateProposal(proposal);
