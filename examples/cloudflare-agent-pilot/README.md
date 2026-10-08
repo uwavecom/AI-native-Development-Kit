@@ -52,3 +52,7 @@ The Workers integration suite also simulates a committed SQLite write followed b
 ## RPC experiment and limitations
 
 `PILOT_CALLER_TOKEN` and `PILOT_SIGNING_SECRET` are required server-side bindings for trusted task execution; neither is provided in the deployable `wrangler.jsonc`. Test-only sample values live in `wrangler.test.jsonc` and MUST NOT be reused outside tests. The single shared caller token demonstrates rejection of unauthenticated RPC but is **not** a per-user authentication/authorization solution. Do not expose the RPC method to untrusted Workers or to AI-generated inputs; production requires a scoped principal-bound authenticated invocation and server-controlled authorization. The signing key and approval issuance must stay on a separate trusted path.
+
+## Centralized approval coordinator (pilot)
+
+All named agents route one-shot claims to a single named `PilotApprovalCoordinator` Durable Object. A trusted coordinator RPC can mark a credential proof as `REVOKED` before it is claimed. A rejected or already-claimed proof cannot execute a new operation. The coordinator accepts only a test service token, not per-user identities; it does **not** provide production issuer authentication, role management, key rotation or end-to-end audit. Revocation after a claim does **not** reverse work already started, and revocation/claim races are ordered by coordinator storage, not by a human-facing approval UI. Never reuse the test token or secrets in production.
