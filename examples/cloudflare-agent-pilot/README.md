@@ -44,3 +44,7 @@ This is an **SDK integration pilot**, not a complete autonomous agent applicatio
 ## Lost acknowledgement fault injection
 
 The Workers integration suite also simulates a committed SQLite write followed by a thrown `SIMULATED_LOST_ACK` before the caller receives a success response. It verifies that the execution is **not** reported as `SUCCEEDED`, the durable approval claim prevents a blind repeat on a separate interaction, and an explicit SQLite read can establish whether the side effect occurred. This simulation is **not** an actual Worker process kill; it does not establish durable recovery from every crash point or exactly-once semantics for external service calls. Such operations need provider-side idempotency and a separate reconciliation protocol.
+
+## Read-only reconciliation
+
+`reconcileTrustedTask(id, title)` inspects the Durable Object SQLite record without creating or changing any task. It returns `CONFIRMED` for an exact match, `ABSENT` if no row exists, `CONFLICT` for a different title, and `UNKNOWN` when inspection fails. Only `CONFIRMED` is resolved. Neither `ABSENT` nor `UNKNOWN` authorizes automatic retry: the approval may already be claimed, and external providers need independent idempotency/recovery contracts. A matching record is evidence of current state, not cryptographic proof that a particular attempt created it. This is a limited local-data reconciliation example, not a general recovery engine.
