@@ -13,6 +13,8 @@ jobs:
       - run: npm run verify
       - name: Validate npm package contents
         run: npm pack --dry-run
+      - name: Verify installation into a fresh consumer project
+        run: node scripts/verify-consumer.mjs
       - name: Install real SDK integration dependencies
         working-directory: integration/real-sdk
         run: npm install --no-audit --no-fund
