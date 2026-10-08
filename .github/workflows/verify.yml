@@ -11,6 +11,8 @@ jobs:
         with:
           node-version: 22
       - run: npm run verify
+      - name: Validate npm package contents
+        run: npm pack --dry-run
       - name: Install real SDK integration dependencies
         working-directory: integration/real-sdk
         run: npm install --no-audit --no-fund
