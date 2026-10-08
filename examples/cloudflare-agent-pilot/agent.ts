@@ -39,7 +39,7 @@ export class TaskAgent extends Agent<Env> {
         this.sql<{ id: string; title: string }>`SELECT id, title FROM pilot_tasks WHERE id = ${id}`[0] ?? null,
     };
     const approvalAuthority = createDurableApprovalAuthority({
-      sql: (strings: TemplateStringsArray, ...values: unknown[]) => this.sql(strings, ...values),
+      sql: (strings: TemplateStringsArray, ...values: (string | number | boolean | null)[]) => this.sql(strings, ...values),
       signer: input.approvalAuthority,
     });
     const service = createGuardedTaskService({ approvalAuthority, store });
