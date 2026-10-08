@@ -25,13 +25,15 @@ sensitive or external operations.
    only the supplied signature, while the invocation used modified params.
    The pilot now recalculates the canonical proposal signature and rejects
    mismatches before execution **and** reconciliation. Regression test added.
-2. **Open — trust establishment and RPC (BLOCKER for public integration):**
-   `executeTrustedTask` presently accepts an in-process `approvalAuthority`
-   object containing functions. This works via `runInDurableObject`, but
-   cannot be treated as a serialized cross-Worker RPC contract. A real
-   integration must construct authority server-side from protected bindings,
-   authenticate the caller, and derive the actor's permissions on the server.
-   Do not accept model-provided actor or approval authorities as trusted.
+2. **Partially fixed — trust establishment and RPC (BLOCKER for public integration):**
+   `executeTrustedTask` now constructs the signing verifier from server-side
+   environment bindings, authenticates a shared demonstration service token,
+   and derives a fixed service principal rather than accepting function objects
+   or caller-supplied permission lists. Unauthenticated RPC is rejected.
+   **Remaining gap:** a shared bearer token is not per-principal identity or
+   scoped authorization. A real deployment must use authenticated, scoped,
+   rotation-ready principals and must not make an LLM or user-controlled input
+   a trusted caller.
 3. **Open — distributed approval scope (BLOCKER for real external writes):**
    SQLite claim uniqueness applies only within one named Durable Object.
    A production integration must prove that every request for the same
