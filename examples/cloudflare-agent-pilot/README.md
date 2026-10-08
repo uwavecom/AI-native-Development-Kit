@@ -66,11 +66,14 @@ verification via GET. Run `node --test test/cloudflare-github-issue.test.mjs`
 from the repository root. All automated tests replace `fetch` with a mock:
 **they do not create any real GitHub issue or use any live token**.
 
-The adapter intentionally is not exposed as an unauthenticated Worker HTTP route
-and is **not yet wired to the TaskAgent production RPC**. That would require a
-protected per-repository GitHub App installation token, correctly scoped
-caller identity, durable central approval claims, secure secret bindings, and a
-complete review of external API fault behavior. GitHub Issues creation is not
+The adapter is wired into the TaskAgent's **trusted server-side RPC** method
+`executeTrustedGitHubIssue`, but is not exposed as a public HTTP mutation route.
+It refuses to run unless the Worker has `GITHUB_ISSUES_TOKEN` and
+`GITHUB_ALLOWED_REPOSITORY` server-side bindings, in addition to its signing
+secret and pilot caller credential. Nothing in CI provides these real secrets.
+A production integration would still require a short-lived, repository-scoped
+GitHub App installation token, authenticated caller identity, and review of
+external API failure semantics. GitHub Issues creation is not
 guaranteed idempotent: after a lost POST acknowledgement, never blindly retry;
 use provider-specific reconciliation with human review. An `operationId` binds
 approval intent only, and GitHub does not automatically deduplicate on that ID.
