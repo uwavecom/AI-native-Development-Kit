@@ -43,7 +43,9 @@ Clone the repository and run:
 node examples/quickstart.mjs
 ```
 
-The example protects a destructive `merge_pull_request` action. For the complete copy-paste path from tool declaration to production checklist, see [`docs/getting-started.md`](docs/getting-started.md).
+The example protects a destructive `merge_pull_request` action. For a **fresh external Node.js project**, follow [`docs/first-external-project.md`](docs/first-external-project.md). The external-consumer smoke test is `node scripts/verify-consumer.mjs` (also in CI).
+
+For the complete copy-paste path from tool declaration to production checklist, see [`docs/getting-started.md`](docs/getting-started.md).
 
 The core flow is:
 
