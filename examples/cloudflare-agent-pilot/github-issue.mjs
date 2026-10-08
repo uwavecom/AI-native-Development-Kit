@@ -56,6 +56,8 @@ export function createGitHubIssueService({
     return { repository: fullRepo, operationId: issue.operationId,
       title: issue.title, body: issue.body };
   }
+  /** @param {{repository: string, operationId: string, title: string, body: string}} issue
+   * @param {{agentId: string} | null} [scope] */
   function makeProposal(issue, scope = null) {
     const params = validate(issue);
     return guard.propose({
