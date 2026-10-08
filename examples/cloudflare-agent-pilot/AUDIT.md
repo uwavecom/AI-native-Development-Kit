@@ -76,3 +76,7 @@ must be designed before production use.
 ## Shared coordinator prototype (2026-10-08)
 
 A single `PilotApprovalCoordinator` Durable Object now owns global credential proof claims and pre-claim revocations across all named agents in this pilot. Its SQLite unique key decides claim vs revoke. Tests cover a revoked-but-unclaimed approval rejected by the target agent. **Still blocked for production:** authenticated per-principal administration and revocation, hardened separation of caller/revoker authority, a safe approval issuance UI, external provider idempotency, and a complete restart/concurrency evaluation. The test bearer token alone is not acceptable governance.
+
+## Capability separation and concurrency check (2026-10-08)
+
+The coordinator now uses separate test-only tokens for claims and revocation. These tokens intentionally demonstrate two distinct privileges and do not implement end-user authentication, principal-scoped policies, or issuance workflows. Workers integration tests concurrently claim the same proof and race a claim against revocation. Exactly one of claim/revoke can win for an unclaimed proof. **This remains a prototype:** the single global coordinator can become a scalability bottleneck; no full process restart, abuse rate limit, credential issuance governance or provider-integrated idempotency tests have been completed. Promotion to production remains blocked.
