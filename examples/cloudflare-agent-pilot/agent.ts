@@ -24,6 +24,21 @@ export class TaskAgent extends Agent<Env> {
     return Response.json({ service: 'cloudflare-agent-pilot', status: 'ready' });
   }
 
+  // Read-only reconciliation. Callable only from trusted server code; never
+  // interprets absence as permission to retry an already claimed operation.
+  async reconcileTrustedTask(id: string, title: string) {
+    this.prepare();
+    const service = createGuardedTaskService({
+      approvalAuthority: { verify: async () => ({ valid: false }), claim: async () => ({ valid: false }) },
+      store: {
+        create: async () => { throw new Error('RECONCILIATION_IS_READ_ONLY'); },
+        get: async (taskId: string) =>
+          this.sql<{ id: string; title: string }>`SELECT id, title FROM pilot_tasks WHERE id = ${taskId}`[0] ?? null,
+      },
+    });
+    return service.reconcile(service.propose(id, title));
+  }
+
   // Trusted server-side invocation. The authority must be independent of the model.
   async executeTrustedTask(input: {
     id: string; title: string; actor: { id: string; permissions: string[] };
