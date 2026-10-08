@@ -6,7 +6,7 @@ const sha = 'a'.repeat(40);
 const pr = { state: 'open', base: { ref: 'main' }, head: { sha, repo: { full_name: 'org/repo' } } };
 const check = (name, overrides = {}) => ({
   id: name === 'verify' ? 1 : 2, name, status: 'completed', conclusion: 'success',
-  app: { slug: 'github-actions' }, check_suite: { head_sha: sha },
+  app: { slug: 'github-actions' }, head_sha: sha,
   html_url: 'https://github.com/org/repo/actions/runs/12/job/22',
   ...overrides,
 });
@@ -32,7 +32,7 @@ test('missing, failed, pending and foreign-SHA checks fail closed', async () => 
     [check('verify')],
     [check('verify'), check('security', { conclusion: 'failure' })],
     [check('verify'), check('security', { status: 'queued', conclusion: null })],
-    [check('verify'), check('security', { check_suite: { head_sha: 'b'.repeat(40) } })],
+    [check('verify'), check('security', { head_sha: 'b'.repeat(40) })],
     [check('verify'), check('security', { app: { slug: 'external-app' } })],
     [check('verify'), check('security'), check('security', { id: 3 })],
   ]) {
