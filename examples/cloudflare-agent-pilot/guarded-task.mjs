@@ -29,6 +29,27 @@ export function createGuardedTaskService({ approvalAuthority, store, audit = asy
         throw new Error('INVALID_TASK');
       return guard.propose({ toolName: 'create_task', target: id, params: { id, title } });
     },
+    async reconcile(proposal) {
+      if (!proposal || proposal.toolName !== 'create_task') throw new Error('INVALID_PROPOSAL');
+      const { id, title } = proposal.params ?? {};
+      if (proposal.target !== id || typeof id !== 'string' || !id.trim() ||
+          typeof title !== 'string' || !title.trim()) throw new Error('INVALID_TASK');
+      let outcome;
+      try {
+        const actual = await store.get(id);
+        outcome = actual == null
+          ? { status: 'ABSENT', resolved: false }
+          : actual.title === title
+            ? { status: 'CONFIRMED', resolved: true }
+            : { status: 'CONFLICT', resolved: false };
+      } catch {
+        outcome = { status: 'UNKNOWN', resolved: false };
+      }
+      // This is an observation, not authorization to retry or a claim of exactly-once.
+      await audit({ event: 'task_reconciled', signature: proposal.actionSignature,
+        status: outcome.status });
+      return { ...outcome, actionSignature: proposal.actionSignature };
+    },
     async execute({ proposal, credential, actor }) {
       if (!proposal || proposal.toolName !== 'create_task') throw new Error('INVALID_PROPOSAL');
       // Do not execute a different set of parameters from those covered by the signature.
