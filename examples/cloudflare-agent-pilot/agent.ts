@@ -65,7 +65,7 @@ export class TaskAgent extends Agent<Env> {
     });
     const service = createGuardedTaskService({ approvalAuthority, store });
     return service.execute({
-      proposal: service.propose(input.id, input.title),
+      proposal: service.propose(input.id, input.title, { agentId: this.name }),
       credential: input.approvalCredential,
       actor: { id: 'pilot-service-principal', permissions: ['task:create'] },
     });
