@@ -45,11 +45,33 @@ export async function verifyRequiredGithubChecks({
     if (data.check_runs.length !== 100) throw new Error('Incomplete GitHub checks pagination');
   }
   if (checks.length !== total) throw new Error('Too many or incomplete GitHub checks');
+  // Correlate GitHub Actions checks with the pull_request workflow suite.
+  // The same SHA commonly has both push and pull_request check runs.
+  const workflowData = await get(`/actions/runs?head_sha=${sha}&event=pull_request&per_page=100`);
+  if (!Array.isArray(workflowData.workflow_runs) ||
+      !Number.isSafeInteger(workflowData.total_count) ||
+      workflowData.total_count > 100) {
+    throw new Error('Ambiguous or incomplete GitHub workflow list');
+  }
+  const workflowRuns = workflowData.workflow_runs.filter(run =>
+    run.event === 'pull_request' && run.head_sha === sha &&
+    run.head_branch === initial.head.ref &&
+    run.repository?.full_name === `${owner}/${repo}` &&
+    Number.isSafeInteger(run.check_suite_id));
+  // A policy can later authorize multiple workflow suites. For this pilot,
+  // reject a missing suite and deterministically use the newest PR workflow.
+  workflowRuns.sort((a, b) => b.id - a.id);
+  const selectedRun = workflowRuns[0];
+  if (!selectedRun || selectedRun.status !== 'completed' ||
+      selectedRun.conclusion !== 'success') {
+    return Object.freeze({ verified: false, headSha: sha, evidence: null,
+      missingOrFailed: Object.freeze(['PULL_REQUEST_WORKFLOW']) });
+  }
   const matched = [];
   for (const name of requiredChecks) {
     const candidates = checks.filter(c => c.name === name &&
       c.app?.slug === 'github-actions' &&
-      c.head_sha === sha);
+      c.head_sha === sha && c.check_suite?.id === selectedRun.check_suite_id);
     // A duplicated check name is ambiguous and must not be silently accepted.
     if (candidates.length !== 1 ||
         candidates[0].status !== 'completed' ||
@@ -74,7 +96,7 @@ export async function verifyRequiredGithubChecks({
     requiredChecks: Object.freeze([...requiredChecks]),
     evidence: Object.freeze({
       kind: 'ci-passed',
-      reference: matched.map(name => checks.find(c => c.name === name && c.head_sha === sha).html_url).join(' '),
+      reference: matched.map(name => checks.find(c => c.name === name && c.head_sha === sha && c.check_suite?.id === selectedRun.check_suite_id).html_url).join(' '),
     }),
   });
 }
