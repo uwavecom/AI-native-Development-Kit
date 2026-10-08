@@ -179,7 +179,7 @@ describe('real Workers runtime / Durable Object agent pilot', () => {
     const proposal = probe.propose('revoke-demo', 'Blocked task', { agentId: 'agent-revoked' });
     const credential = await signer.issue(proposal, { approverId: 'owner' });
     const coordinator = env.ApprovalCoordinator.getByName('pilot-global');
-    const revoked = await coordinator.revoke(credential.proof, 'integration-test-only-caller-token-2026');
+    const revoked = await coordinator.revoke(credential.proof, 'integration-test-only-revoker-token-2026');
     expect(revoked.revoked).toBe(true);
     const agent = env.TaskAgent.get(env.TaskAgent.idFromName('agent-revoked'));
     await runInDurableObject(agent, async (instance: TaskAgent) => {
@@ -191,5 +191,36 @@ describe('real Workers runtime / Durable Object agent pilot', () => {
       expect(result.execution.error).toBe('APPROVAL_REVOKED');
       expect(instance.sql<{ total: number }>`SELECT COUNT(*) AS total FROM pilot_tasks`[0]?.total).toBe(0);
     });
+  });
+  it('separates execute and revoke authority', async () => {
+    const coordinator = env.ApprovalCoordinator.getByName('pilot-global');
+    await expect(coordinator.claim('a'.repeat(64), 'b'.repeat(64),
+      'integration-test-only-revoker-token-2026')).rejects.toThrow('UNAUTHORIZED_COORDINATOR');
+    await expect(coordinator.revoke('c'.repeat(64),
+      'integration-test-only-caller-token-2026')).rejects.toThrow('UNAUTHORIZED_REVOKER');
+  });
+
+  it('arbitrates concurrent claims for one approval exactly once', async () => {
+    const coordinator = env.ApprovalCoordinator.getByName('pilot-global');
+    const proof = 'd'.repeat(64);
+    const signature = 'e'.repeat(64);
+    const responses = await Promise.all(Array.from({length: 12}, () =>
+      coordinator.claim(proof, signature, 'integration-test-only-caller-token-2026')));
+    expect(responses.filter(result => result.valid).length).toBe(1);
+    expect(responses.filter(result => result.reason === 'APPROVAL_ALREADY_CONSUMED').length).toBe(11);
+    const revoke = await coordinator.revoke(proof, 'integration-test-only-revoker-token-2026');
+    expect(revoke.revoked).toBe(false);
+  });
+
+  it('arbitrates concurrent revoke and claim without ambiguous double outcome', async () => {
+    const coordinator = env.ApprovalCoordinator.getByName('pilot-global');
+    const proof = 'f'.repeat(64);
+    const results = await Promise.all([
+      coordinator.revoke(proof, 'integration-test-only-revoker-token-2026'),
+      coordinator.claim(proof, '1'.repeat(64), 'integration-test-only-caller-token-2026'),
+    ]);
+    const [revoke, claim] = results;
+    expect(Number(revoke.revoked) + Number(claim.valid)).toBe(1);
+    expect(claim.valid || claim.reason === 'APPROVAL_REVOKED').toBe(true);
   });
 });
