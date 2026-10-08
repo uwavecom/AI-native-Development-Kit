@@ -34,11 +34,14 @@ describe('real Workers runtime / Durable Object agent pilot', () => {
     await runInDurableObject(stub, async (agent: TaskAgent) => {
       const rows = agent.sql<{ title: string }>`SELECT title FROM pilot_tasks WHERE id = ${'persisted-2'}`;
       expect(rows[0]?.title).toBe('Durable task');
-      await expect(agent.executeTrustedTask({
+      const replay = await agent.executeTrustedTask({
         id: 'persisted-2', title: 'Durable task',
         actor: { id: 'agent-1', permissions: ['task:create'] },
         approvalCredential: credential, approvalAuthority: signer(),
-      })).rejects.toThrow('APPROVAL_ALREADY_CONSUMED');
+      });
+      expect(replay.execution.status).toBe('FAILED');
+      expect(replay.execution.executed).toBe(false);
+      expect(replay.execution.error).toBe('APPROVAL_ALREADY_CONSUMED');
       const count = agent.sql<{ total: number }>`SELECT COUNT(*) AS total FROM pilot_tasks WHERE id = ${'persisted-2'}`;
       expect(count[0]?.total).toBe(1);
     });
