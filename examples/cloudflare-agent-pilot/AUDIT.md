@@ -61,3 +61,14 @@ sensitive or external operations.
 - Security review and documented deployment configuration.
 
 No deployment or merge was performed during this audit.
+
+## Named-agent scope check (2026-10-08)
+
+The pilot now constructs write proposals with `scope.agentId` derived from the
+server-side Durable Object `this.name`. A signed credential issued for one
+named agent cannot authorize another named agent's write. A Workers integration
+test attempts this cross-agent replay. This is *approval scope binding*, not
+full distributed coordination or revocation: there is still a shared demo
+service token and separate per-object SQLite claim records. A centrally
+coordinated revocation mechanism and server-authenticated per-principal access
+must be designed before production use.
