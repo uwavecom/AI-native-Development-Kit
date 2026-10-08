@@ -4,6 +4,7 @@
  * The SQLite UNIQUE constraint is the final arbiter of replay protection.
  * All calls for a given approval scope MUST route to the same named object.
  */
+/** @param {{sql: Function, signer: {verify: Function}, coordinator?: {claim: (proof: string, signature: string) => Promise<{valid: boolean, reason?: string}>} | null}} options */
 export function createDurableApprovalAuthority({ sql, signer, coordinator = null }) {
   if (typeof sql !== 'function' || !signer?.verify) throw new Error('DURABLE_AUTHORITY_DEPENDENCIES_REQUIRED');
   sql`CREATE TABLE IF NOT EXISTS pilot_approval_claims (
