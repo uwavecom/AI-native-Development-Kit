@@ -194,10 +194,12 @@ describe('real Workers runtime / Durable Object agent pilot', () => {
   });
   it('separates execute and revoke authority', async () => {
     const coordinator = env.ApprovalCoordinator.getByName('pilot-global');
-    await expect(coordinator.claim('a'.repeat(64), 'b'.repeat(64),
-      'integration-test-only-revoker-token-2026')).rejects.toThrow('UNAUTHORIZED_COORDINATOR');
-    await expect(coordinator.revoke('c'.repeat(64),
-      'integration-test-only-caller-token-2026')).rejects.toThrow('UNAUTHORIZED_REVOKER');
+    await runInDurableObject(coordinator, async (instance) => {
+      await expect(instance.claim('a'.repeat(64), 'b'.repeat(64),
+        'integration-test-only-revoker-token-2026')).rejects.toThrow('UNAUTHORIZED_COORDINATOR');
+      await expect(instance.revoke('c'.repeat(64),
+        'integration-test-only-caller-token-2026')).rejects.toThrow('UNAUTHORIZED_REVOKER');
+    });
   });
 
   it('arbitrates concurrent claims for one approval exactly once', async () => {
