@@ -5,12 +5,15 @@
  * an externally issued approval credential (never by unauthenticated HTTP).
  */
 import { Agent, routeAgentRequest } from 'agents';
+import type { PilotApprovalCoordinator } from './approval-coordinator';
+export { PilotApprovalCoordinator } from './approval-coordinator';
 import { createGuardedTaskService } from './guarded-task.mjs';
 import { createDurableApprovalAuthority } from './durable-approval-authority.mjs';
 import { createSignedApprovalAuthority } from '../../runtime/index.mjs';
 
 interface Env {
   TaskAgent: DurableObjectNamespace;
+  ApprovalCoordinator: DurableObjectNamespace<PilotApprovalCoordinator>;
   PILOT_SIGNING_SECRET?: string;
   PILOT_CALLER_TOKEN?: string;
 }
@@ -62,6 +65,10 @@ export class TaskAgent extends Agent<Env> {
     const approvalAuthority = createDurableApprovalAuthority({
       sql: (strings: TemplateStringsArray, ...values: (string | number | boolean | null)[]) => this.sql(strings, ...values),
       signer: createSignedApprovalAuthority({ secret }),
+      coordinator: {
+        claim: (proof: string, signature: string) => this.env.ApprovalCoordinator
+          .getByName('pilot-global').claim(proof, signature, token),
+      },
     });
     const service = createGuardedTaskService({ approvalAuthority, store });
     return service.execute({
