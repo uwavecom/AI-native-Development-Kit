@@ -40,3 +40,7 @@ AI-native Development Kit guard -> checked invocation -> read-after-write verify
 ```
 
 This is an **SDK integration pilot**, not a complete autonomous agent application or production-ready approval system.
+
+## Lost acknowledgement fault injection
+
+The Workers integration suite also simulates a committed SQLite write followed by a thrown `SIMULATED_LOST_ACK` before the caller receives a success response. It verifies that the execution is **not** reported as `SUCCEEDED`, the durable approval claim prevents a blind repeat on a separate interaction, and an explicit SQLite read can establish whether the side effect occurred. This simulation is **not** an actual Worker process kill; it does not establish durable recovery from every crash point or exactly-once semantics for external service calls. Such operations need provider-side idempotency and a separate reconciliation protocol.
