@@ -69,8 +69,8 @@ test('ambiguous POST failure is not automatically retried', async () => {
   const { proposal, credential } = await authorize(f);
   const first = await f.service.execute({ proposal, credential, actor });
   assert.notEqual(first.execution.status, 'SUCCEEDED');
-  const second = await f.service.execute({ proposal, credential, actor });
-  assert.equal(second.execution.executed, false);
+  await assert.rejects(f.service.execute({ proposal, credential, actor }),
+    /APPROVAL_ALREADY_CONSUMED/);
   assert.equal(f.calls.filter(x => x.init.method === 'POST').length, 1);
 });
 
