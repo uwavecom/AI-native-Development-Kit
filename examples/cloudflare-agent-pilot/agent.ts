@@ -10,12 +10,15 @@ export { PilotApprovalCoordinator } from './approval-coordinator';
 import { createGuardedTaskService } from './guarded-task.mjs';
 import { createDurableApprovalAuthority } from './durable-approval-authority.mjs';
 import { createSignedApprovalAuthority } from '../../runtime/index.mjs';
+import { createGitHubIssueService } from './github-issue.mjs';
 
 interface Env {
   TaskAgent: DurableObjectNamespace;
   ApprovalCoordinator: DurableObjectNamespace<PilotApprovalCoordinator>;
   PILOT_SIGNING_SECRET?: string;
   PILOT_CALLER_TOKEN?: string;
+  GITHUB_ISSUES_TOKEN?: string;
+  GITHUB_ALLOWED_REPOSITORY?: string;
 }
 
 export class TaskAgent extends Agent<Env> {
@@ -41,6 +44,43 @@ export class TaskAgent extends Agent<Env> {
       },
     });
     return service.reconcile(service.propose(id, title));
+  }
+
+  // Real external API adapter. This method remains server-side only: no public
+  // mutation HTTP route, no token, scope or permissions accepted from the model.
+  // No deployment should occur until principal authentication is production-grade.
+  async executeTrustedGitHubIssue(input: {
+    repository: string; operationId: string; title: string; body: string;
+    approvalCredential: unknown; callerToken: string;
+  }) {
+    const token = this.env.PILOT_CALLER_TOKEN;
+    const secret = this.env.PILOT_SIGNING_SECRET;
+    const githubToken = this.env.GITHUB_ISSUES_TOKEN;
+    const allowedRepository = this.env.GITHUB_ALLOWED_REPOSITORY;
+    if (!token || token.length < 16 || input?.callerToken !== token ||
+        !secret || secret.length < 16) throw new Error('UNAUTHORIZED_RPC');
+    if (!githubToken || !allowedRepository) throw new Error('GITHUB_INTEGRATION_NOT_CONFIGURED');
+
+    const service = createGitHubIssueService({
+      approvalAuthority: createDurableApprovalAuthority({
+        sql: (strings: TemplateStringsArray, ...values: (string | number | boolean | null)[]) =>
+          this.sql(strings, ...values),
+        signer: createSignedApprovalAuthority({ secret }),
+        coordinator: {
+          claim: (proof: string, signature: string) => this.env.ApprovalCoordinator
+            .getByName('pilot-global').claim(proof, signature, token),
+        },
+      }),
+      githubToken, allowedRepository,
+    });
+    const proposal = service.propose({
+      repository: input.repository, operationId: input.operationId,
+      title: input.title, body: input.body,
+    }, { agentId: this.name });
+    return service.execute({
+      proposal, credential: input.approvalCredential,
+      actor: { id: 'pilot-service-principal', permissions: ['github:issues:write'] },
+    });
   }
 
   // This RPC cannot trust caller-supplied identity or function objects.
