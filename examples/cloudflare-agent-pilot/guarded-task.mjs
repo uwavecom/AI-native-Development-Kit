@@ -36,6 +36,7 @@ export function createGuardedTaskService({ approvalAuthority, store, audit = asy
     return { id, title };
   }
   return {
+    /** @param {string} id @param {string} title @param {{agentId: string} | null} [scope] */
     propose(id, title, scope = null) {
       if (typeof id !== 'string' || !id.trim() || typeof title !== 'string' || !title.trim())
         throw new Error('INVALID_TASK');
