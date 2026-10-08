@@ -7,11 +7,12 @@
 import { Agent, routeAgentRequest } from 'agents';
 import { createGuardedTaskService } from './guarded-task.mjs';
 import { createDurableApprovalAuthority } from './durable-approval-authority.mjs';
+import { createSignedApprovalAuthority } from '../../runtime/index.mjs';
 
-interface Env { TaskAgent: DurableObjectNamespace; }
-interface CredentialAuthority {
-  verify: (credential: unknown, proposal: unknown) => Promise<unknown>;
-  claim: (credential: unknown, proposal: unknown) => Promise<unknown>;
+interface Env {
+  TaskAgent: DurableObjectNamespace;
+  PILOT_SIGNING_SECRET?: string;
+  PILOT_CALLER_TOKEN?: string;
 }
 
 export class TaskAgent extends Agent<Env> {
@@ -39,11 +40,16 @@ export class TaskAgent extends Agent<Env> {
     return service.reconcile(service.propose(id, title));
   }
 
-  // Trusted server-side invocation. The authority must be independent of the model.
+  // This RPC cannot trust caller-supplied identity or function objects.
+  // Authentication is deliberately a single test-only service principal;
+  // multi-user deployments need identity-bound signed requests.
   async executeTrustedTask(input: {
-    id: string; title: string; actor: { id: string; permissions: string[] };
-    approvalCredential: unknown; approvalAuthority: CredentialAuthority;
+    id: string; title: string; approvalCredential: unknown; callerToken: string;
   }) {
+    const token = this.env.PILOT_CALLER_TOKEN;
+    const secret = this.env.PILOT_SIGNING_SECRET;
+    if (!token || !secret || token.length < 16 || secret.length < 16 ||
+        input?.callerToken !== token) throw new Error('UNAUTHORIZED_RPC');
     this.prepare();
     const store = {
       create: async (id: string, title: string) => {
@@ -55,13 +61,13 @@ export class TaskAgent extends Agent<Env> {
     };
     const approvalAuthority = createDurableApprovalAuthority({
       sql: (strings: TemplateStringsArray, ...values: (string | number | boolean | null)[]) => this.sql(strings, ...values),
-      signer: input.approvalAuthority,
+      signer: createSignedApprovalAuthority({ secret }),
     });
     const service = createGuardedTaskService({ approvalAuthority, store });
     return service.execute({
       proposal: service.propose(input.id, input.title),
       credential: input.approvalCredential,
-      actor: input.actor,
+      actor: { id: 'pilot-service-principal', permissions: ['task:create'] },
     });
   }
 }
