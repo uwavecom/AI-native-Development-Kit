@@ -6,6 +6,7 @@
  */
 import { Agent, routeAgentRequest } from 'agents';
 import { createGuardedTaskService } from './guarded-task.mjs';
+import { createDurableApprovalAuthority } from './durable-approval-authority.mjs';
 
 interface Env { TaskAgent: DurableObjectNamespace; }
 interface CredentialAuthority {
@@ -37,7 +38,11 @@ export class TaskAgent extends Agent<Env> {
       get: async (id: string) =>
         this.sql<{ id: string; title: string }>`SELECT id, title FROM pilot_tasks WHERE id = ${id}`[0] ?? null,
     };
-    const service = createGuardedTaskService({ approvalAuthority: input.approvalAuthority, store });
+    const approvalAuthority = createDurableApprovalAuthority({
+      sql: (strings: TemplateStringsArray, ...values: unknown[]) => this.sql(strings, ...values),
+      signer: input.approvalAuthority,
+    });
+    const service = createGuardedTaskService({ approvalAuthority, store });
     return service.execute({
       proposal: service.propose(input.id, input.title),
       credential: input.approvalCredential,
