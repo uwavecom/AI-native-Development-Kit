@@ -1,5 +1,7 @@
 # Cloudflare Agents SDK pilot (no deployment)
 
+For setup and verification, start with **[QUICKSTART.md](./QUICKSTART.md)**. Before merging or deploying, review **[AUDIT.md](./AUDIT.md)**. This is a development-only example; live production use is not approved.
+
 This example uses the official [Cloudflare Agents SDK](https://developers.cloudflare.com/agents/runtime/agents-api/) `Agent` subclass with an embedded SQLite task store, plus the AI-native Development Kit's permission/approval/verification boundary.
 
 ## Scope and security
@@ -7,7 +9,7 @@ This example uses the official [Cloudflare Agents SDK](https://developers.cloudf
 - `agent.ts` is the Cloudflare SDK integration; `guarded-task.mjs` is independently testable without a Cloudflare account.
 - HTTP only serves a read-only status. The mutation entrypoint `executeTrustedTask` is an authenticated RPC experiment for **trusted server-side calls**, not a public HTTP tool or a model-facing action. It rejects calls without the test service token; it constructs its approval verifier from server-side environment bindings and derives an internal service principal rather than trusting caller-supplied permissions.
 - The caller must obtain a signed approval from a **separate authenticated authority** and supply it without letting a model forge it. No public approval endpoint is provided.
-- The pilot now wraps signed proof validation with atomic SQLite-backed one-shot claims inside the named Durable Object. The SQLite unique key survives authority reconstruction and is shared by calls routed to the same instance. Production use still requires routing all claims in a security scope to the same trusted Durable Object, authenticated issuer configuration, protected credential secrets, and an independently tested recovery protocol.
+- The pilot delegates signed proof claims to the shared `PilotApprovalCoordinator` Durable Object; its SQLite unique key prevents duplicate claims across named agents in the configured pilot scope. Production use still requires scoped authenticated principals, protected issuer keys, verified scope routing, and an independently tested recovery protocol.
 - The bundled signing authority uses a demo secret and in-memory replay tracking. Its replay protection is **not** relied upon for the Durable Object path; the persisted SQLite claim is. It is still not a production-grade credential service.
 - `this.sql` stores only demo tasks. No user identity/authentication or real external tools are bundled.
 - Node crypto compatibility may be required for the current reference authority. A production deployment must validate Workers compatibility, dependency bundling, secret management, and storage security separately.
@@ -25,7 +27,7 @@ npx vitest run --config vitest.config.mts
 
 A separate CI job installs the official `agents` SDK, runs `tsc`, and executes the integration specs in the Cloudflare Workers runtime with Vitest. The integration tests exercise HTTP handling, SQLite persistence across independent Durable Object interactions, and one-shot approval rejection. They exercise independent Agent calls and recreated signing authorities, but do not prove persistence across a full worker process restart, robust distributed approval coordination, or end-to-end recovery of partially executed external side effects.
 
-No production deployment, Wrangler configuration, AI model, or Cloudflare credentials are included.
+No production deployment, AI model, or live Cloudflare credentials are included. Wrangler configurations support local integration tests and define binding names; test-only values must never be reused.
 
 ## Architecture
 
@@ -55,7 +57,7 @@ The Workers integration suite also simulates a committed SQLite write followed b
 
 ## Centralized approval coordinator (pilot)
 
-All named agents route one-shot claims to a single named `PilotApprovalCoordinator` Durable Object. A trusted coordinator RPC can mark a credential proof as `REVOKED` before it is claimed. A rejected or already-claimed proof cannot execute a new operation. The coordinator accepts only a test service token, not per-user identities; it does **not** provide production issuer authentication, role management, key rotation or end-to-end audit. Revocation after a claim does **not** reverse work already started, and revocation/claim races are ordered by coordinator storage, not by a human-facing approval UI. Never reuse the test token or secrets in production.
+All named agents route one-shot claims to a single named `PilotApprovalCoordinator` Durable Object. A trusted coordinator RPC can mark a credential proof as `REVOKED` before it is claimed. A rejected or already-claimed proof cannot execute a new operation. The coordinator uses separate test-only claim and revocation tokens, not per-user identities; it does **not** provide production issuer authentication, role management, key rotation or end-to-end audit. Revocation after a claim does **not** reverse work already started, and revocation/claim races are ordered by coordinator storage, not by a human-facing approval UI. Never reuse the test token or secrets in production.
 
 ## Real provider example: GitHub Issues (mocked CI)
 
