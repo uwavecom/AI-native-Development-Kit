@@ -1,6 +1,6 @@
 import { DurableObject } from 'cloudflare:workers';
 
-type Env = { PILOT_CALLER_TOKEN?: string };
+type Env = { PILOT_CALLER_TOKEN?: string; PILOT_REVOKER_TOKEN?: string };
 
 /** Demonstration coordinator, deliberately one global security scope.
  * Authentication is a test service token, NOT end-user identity.
@@ -15,13 +15,13 @@ export class PilotApprovalCoordinator extends DurableObject<Env> {
     )`);
   }
 
-  private authenticate(token: string) {
+  private authenticateExecutor(token: string) {
     if (!this.env.PILOT_CALLER_TOKEN || this.env.PILOT_CALLER_TOKEN.length < 16 ||
       token !== this.env.PILOT_CALLER_TOKEN) throw new Error('UNAUTHORIZED_COORDINATOR');
   }
 
   async claim(proof: string, signature: string, token: string) {
-    this.authenticate(token);
+    this.authenticateExecutor(token);
     if (!/^[a-f0-9]{64}$/.test(proof) || !/^[a-f0-9]{64}$/.test(signature))
       throw new Error('INVALID_CLAIM');
     // One atomic INSERT; a preceding REVOKED or CLAIMED row always wins.
