@@ -117,4 +117,30 @@ describe('real Workers runtime / Durable Object agent pilot', () => {
     });
     expect(observedStatus).not.toBe('SUCCEEDED');
   });
+  it('reconciles confirmed, absent and conflicting outcomes without writing again', async () => {
+    const stub = env.TaskAgent.get(env.TaskAgent.idFromName('read-only-reconciliation'));
+    await runInDurableObject(stub, async (agent: TaskAgent) => {
+      agent.sql`CREATE TABLE IF NOT EXISTS pilot_tasks (id TEXT PRIMARY KEY, title TEXT NOT NULL)`;
+      agent.sql`INSERT INTO pilot_tasks (id, title) VALUES (${'existing'}, ${'Original'})`;
+      expect((await agent.reconcileTrustedTask('existing', 'Original')).status).toBe('CONFIRMED');
+      expect((await agent.reconcileTrustedTask('existing', 'Modified')).status).toBe('CONFLICT');
+      const absent = await agent.reconcileTrustedTask('missing', 'New task');
+      expect(absent.status).toBe('ABSENT');
+      expect(absent.resolved).toBe(false);
+      expect(agent.sql<{ total: number }>`SELECT COUNT(*) AS total FROM pilot_tasks`[0]?.total).toBe(1);
+    });
+  });
+
+  it('does not infer success when state inspection fails', async () => {
+    const service = createGuardedTaskService({
+      approvalAuthority: { verify: async () => ({ valid: false }), claim: async () => ({ valid: false }) },
+      store: {
+        create: async () => { throw new Error('SHOULD_NOT_RUN'); },
+        get: async () => { throw new Error('READ_FAILED'); },
+      },
+    });
+    const result = await service.reconcile(service.propose('unknown', 'Task'));
+    expect(result.status).toBe('UNKNOWN');
+    expect(result.resolved).toBe(false);
+  });
 });
