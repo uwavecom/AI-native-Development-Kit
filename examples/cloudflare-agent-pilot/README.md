@@ -7,7 +7,8 @@ This example uses the official [Cloudflare Agents SDK](https://developers.cloudf
 - `agent.ts` is the Cloudflare SDK integration; `guarded-task.mjs` is independently testable without a Cloudflare account.
 - HTTP only serves a read-only status. The mutation entrypoint `executeTrustedTask` is for **trusted server-side calls**, not public RPC or an LLM tool.
 - The caller must obtain a signed approval from a **separate authenticated authority** and supply it without letting a model forge it. No public approval endpoint is provided.
-- The reference signed authority has in-memory replay state and is NOT suitable for horizontally scaled or restarted production execution. Use a durable single-use credential authority (for example a properly integrated Durable Object) before shipping.
+- The pilot now wraps signed proof validation with atomic SQLite-backed one-shot claims inside the named Durable Object. The SQLite unique key survives authority reconstruction and is shared by calls routed to the same instance. Production use still requires routing all claims in a security scope to the same trusted Durable Object, authenticated issuer configuration, protected credential secrets, and an independently tested recovery protocol.
+- The bundled signing authority uses a demo secret and in-memory replay tracking. Its replay protection is **not** relied upon for the Durable Object path; the persisted SQLite claim is. It is still not a production-grade credential service.
 - `this.sql` stores only demo tasks. No user identity/authentication or real external tools are bundled.
 - Node crypto compatibility may be required for the current reference authority. A production deployment must validate Workers compatibility, dependency bundling, secret management, and storage security separately.
 
@@ -22,7 +23,7 @@ npm run verify
 npx vitest run --config vitest.config.mts
 ```
 
-A separate CI job installs the official `agents` SDK, runs `tsc`, and executes the integration specs in the Cloudflare Workers runtime with Vitest. The integration tests exercise HTTP handling, SQLite persistence across independent Durable Object interactions, and one-shot approval rejection. They do not prove persistence across a complete process restart or distributed approval authority correctness.
+A separate CI job installs the official `agents` SDK, runs `tsc`, and executes the integration specs in the Cloudflare Workers runtime with Vitest. The integration tests exercise HTTP handling, SQLite persistence across independent Durable Object interactions, and one-shot approval rejection. They exercise independent Agent calls and recreated signing authorities, but do not prove persistence across a full worker process restart, robust distributed approval coordination, or end-to-end recovery of partially executed external side effects.
 
 No production deployment, Wrangler configuration, AI model, or Cloudflare credentials are included.
 
