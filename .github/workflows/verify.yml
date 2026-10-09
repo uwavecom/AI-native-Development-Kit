@@ -21,3 +21,22 @@ jobs:
       - name: Verify OpenAI Agents and MCP SDK integrations
         working-directory: integration/real-sdk
         run: npm test
+
+  cloudflare-agent-sdk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install locked Cloudflare Agents SDK dependencies
+        working-directory: examples/cloudflare-agent-pilot
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Typecheck Cloudflare Agent integration
+        working-directory: examples/cloudflare-agent-pilot
+        run: npm run typecheck
+      - name: Run pilot security regression tests
+        run: node --test test/cloudflare-agent-pilot.test.mjs
+      - name: Run real Workers and Durable Object integration tests
+        working-directory: examples/cloudflare-agent-pilot
+        run: npm test

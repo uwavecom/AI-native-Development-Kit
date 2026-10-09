@@ -1,0 +1,39 @@
+{
+  "name": "kit-cloudflare-agent-pilot-test",
+  "main": "agent.ts",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "TaskAgent",
+        "class_name": "TaskAgent"
+      },
+      {
+        "name": "ApprovalCoordinator",
+        "class_name": "PilotApprovalCoordinator"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "TaskAgent"
+      ]
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": [
+        "PilotApprovalCoordinator"
+      ]
+    }
+  ],
+  "vars": {
+    "PILOT_SIGNING_SECRET": "integration-test-only-signing-secret-2026",
+    "PILOT_CALLER_TOKEN": "integration-test-only-caller-token-2026",
+    "PILOT_REVOKER_TOKEN": "integration-test-only-revoker-token-2026"
+  }
+}

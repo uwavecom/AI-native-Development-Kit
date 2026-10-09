@@ -17,5 +17,5 @@ function files(directory) {
 for (const file of ['adapters', 'examples', 'guardrails', 'profiles', 'runtime', 'scripts', 'test'].flatMap(files)) run(`syntax:${file}`, ['--check', file]);
 run('architecture', ['--experimental-vm-modules', 'guardrails/architecture.mjs']);
 run('tool-contract', ['guardrails/tool-contract.mjs']);
-run('behavior-and-guardrails', ['--experimental-vm-modules', '--test']);
+run('behavior-and-guardrails', ['--experimental-vm-modules', '--test', ...files('test').filter(path => path.endsWith('.test.mjs'))]);
 run('quickstart', ['examples/quickstart.mjs']);
