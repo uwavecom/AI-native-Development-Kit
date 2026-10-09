@@ -14,15 +14,14 @@ npm run verify
 
 # Cloudflare pilot: install the integration dependencies used by GitHub CI
 cd examples/cloudflare-agent-pilot
-npm install --no-save --no-package-lock --ignore-scripts \
-  agents @cloudflare/workers-types typescript vitest@^4.1.0 \
-  @cloudflare/vitest-plugin wrangler
-npx tsc --project tsconfig.json
-npx vitest run --config vitest.config.mts
+npm ci --ignore-scripts --no-audit --no-fund
+npm run typecheck
+npm test
 ```
 
-**Important:** until a committed dependency lockfile exists, the above is
-a practical smoke-test path, **not deterministic or supply-chain reproducible**.
+**Important:** the pilot now commits an npm lockfile and CI uses `npm ci`.
+This makes package resolution repeatable; it does not, by itself, establish
+supply-chain trust, pin GitHub Actions by immutable SHA, or audit dependencies.
 The separate `integration/real-sdk` project has its own dependencies and
 verification workflow.
 
