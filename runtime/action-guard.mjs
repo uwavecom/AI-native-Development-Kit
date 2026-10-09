@@ -1,4 +1,4 @@
-import { createActionProposal } from './action-proposal.mjs';
+import { createActionProposal, assertBoundActionInput } from './action-proposal.mjs';
 import { runHardenedSafeAction } from './hardened-safe-action.mjs';
 
 export function createActionGuard({
@@ -64,6 +64,7 @@ export function createActionGuard({
     budgetKey,
   }) {
     const tool = getTool(proposal?.toolName);
+    assertBoundActionInput(proposal, input);
     const approval = await verifyApproval(approvalCredential, proposal);
 
     const guardedInvoke = approvalCredential && approvalAuthority?.claim
