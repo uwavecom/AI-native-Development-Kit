@@ -56,3 +56,32 @@ export function isApprovalFresh(approval, now = Date.now()) {
   if (!approval.expiresAt) return true;
   return now < new Date(approval.expiresAt).getTime();
 }
+
+/**
+ * Reject a modified proposal or execution input before any approval is
+ * verified or one-shot claim is recorded. Both hashes use the same canonical
+ * representation as the signed proposal.
+ */
+export function assertBoundActionInput(proposal, input) {
+  if (!proposal?.actionSignature || !proposal.toolName) throw new Error('INVALID_PROPOSAL');
+  const signed = createActionProposal({
+    toolName: proposal.toolName,
+    target: proposal.target ?? null,
+    params: proposal.params ?? {},
+    scope: proposal.scope ?? null,
+    provenance: proposal.provenance ?? null,
+  });
+  const actual = createActionProposal({
+    toolName: proposal.toolName,
+    target: proposal.target ?? null,
+    params: input,
+    scope: proposal.scope ?? null,
+    provenance: proposal.provenance ?? null,
+  });
+  if (signed.actionSignature !== proposal.actionSignature ||
+      actual.actionSignature !== proposal.actionSignature) {
+    const error = new Error('ACTION_INPUT_MISMATCH');
+    error.code = 'ACTION_INPUT_MISMATCH';
+    throw error;
+  }
+}

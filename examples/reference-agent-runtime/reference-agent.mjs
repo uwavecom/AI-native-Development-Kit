@@ -106,7 +106,7 @@ export function createReferenceAgent({ stateStore, lock, budget, github, trading
         steps,
         executeStep: async step => {
           if (step.id === 'fetch') {
-            const proposal = createActionProposal({ toolName: 'fetch_file', target: path });
+            const proposal = createActionProposal({ toolName: 'fetch_file', target: path, params: { path } });
             const action = await runTool({
               tool: getTool('github', 'fetch_file'),
               actor,
