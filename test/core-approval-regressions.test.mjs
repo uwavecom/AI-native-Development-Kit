@@ -70,7 +70,7 @@ test('durable one-shot approval survives budget denial and can be used later', a
     assert.equal(invoked, 1);
     const replay = await runHardenedSafeAction({ ...base });
     assert.equal(replay.execution.executed, false);
-    assert.equal(replay.execution.error, 'APPROVAL_ALREADY_CLAIMED');
+    assert.equal(replay.execution.decision.decision, 'REQUIRE_APPROVAL');
     assert.equal(invoked, 1);
   } finally {
     await rm(root, { recursive: true, force: true });
