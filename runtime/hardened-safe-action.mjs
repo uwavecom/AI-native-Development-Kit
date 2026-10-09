@@ -1,4 +1,5 @@
 import { runSafeAction } from './safe-action.mjs';
+import { assertBoundActionInput } from './action-proposal.mjs';
 
 export async function runHardenedSafeAction({
   tool,
@@ -25,22 +26,7 @@ export async function runHardenedSafeAction({
   let durableApproval = approval ??
     (approvalId && stateStore ? await stateStore.getApproval(approvalId) : null);
 
-  if (approvalId && stateStore && durableApproval?.oneShot === true) {
-    const claim = await stateStore.claimApproval(approvalId, proposal.actionSignature);
-    if (!claim.claimed) {
-      return {
-        execution: {
-          status: 'PENDING',
-          decision: { decision: 'DENY', reason: `APPROVAL_${claim.reason}` },
-          executed: false,
-        },
-        recovery: null,
-        approvalReceipt: durableApproval,
-        resolved: false,
-      };
-    }
-    durableApproval = claim.approval;
-  }
+  assertBoundActionInput(proposal, input ?? proposal.params ?? {});
 
   const audit = stateStore
     ? event => stateStore.appendAudit({
@@ -79,7 +65,19 @@ export async function runHardenedSafeAction({
       approval: durableApproval,
       policy,
       input,
-      invoke,
+      invoke: approvalId && stateStore && durableApproval?.oneShot === true
+        ? async (...args) => {
+            // A claim is taken only after policy and budget checks have passed,
+            // immediately before dispatching the actual side effect.
+            const claim = await stateStore.claimApproval(approvalId, proposal.actionSignature);
+            if (!claim.claimed) {
+              const error = new Error(`APPROVAL_${claim.reason}`);
+              error.code = `APPROVAL_${claim.reason}`;
+              throw error;
+            }
+            return invoke(...args);
+          }
+        : invoke,
       verify,
       inspectState,
       retry,
