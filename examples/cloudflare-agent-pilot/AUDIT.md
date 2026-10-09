@@ -95,10 +95,10 @@ it does not substitute for a production security assessment.
   concurrency tests within local Workers runtime.
 - **Done:** `QUICKSTART.md` explains clean-checkout verification and secret
   boundaries, and `README.md` has been aligned with the code.
-- **Blocking — deterministic supply chain:** Cloudflare CI still installs
-  unpinned moving dependencies without a lockfile. Add and validate a
-  committed lockfile and supported version matrix before declaring this
-  a reproducible release example.
+- **Addressed — dependency resolution:** Cloudflare CI now uses `npm ci`
+  against a committed npm lockfile. Remaining supply-chain security work
+  includes dependency auditing, version compatibility policy, and GitHub
+  Actions pinning to immutable commits.
 - **Blocking — security identity:** shared bearer credentials are not
   principal-scoped authorization or an audited human approval workflow.
 - **Blocking — live provider semantics:** no end-to-end GitHub App installation
@@ -109,3 +109,12 @@ it does not substitute for a production security assessment.
 
 It is suitable for local evaluation in isolation, not for trusted external
 writes. The existing PR should remain open until these gates are addressed.
+
+## Dependency lockfile update (2026-10-09)
+
+GitHub Actions generated the pilot's npm v3 lockfile in a one-off workflow.
+That write-capable bootstrap workflow was removed immediately afterward.
+The normal CI now runs `npm ci --ignore-scripts --no-audit --no-fund` and uses
+versioned package scripts. This addresses repeatable dependency resolution,
+but not a security review of the transitive dependency tree. The approval
+identity and external-provider recovery gates above remain blocking.
